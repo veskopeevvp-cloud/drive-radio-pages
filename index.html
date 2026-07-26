@@ -416,7 +416,7 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   els.loginScreen.style.display = 'none';
-  els.appEl.style.display = '';
+  els.appEl.style.display = 'block';
   els.userBar.style.display = 'flex';
   els.userEmail.textContent = user.email || '';
   if (user.photoURL) {
