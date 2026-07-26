@@ -117,6 +117,66 @@
   /* ---------- App ---------- */
   #app { display: none; }
 
+  /* ---------- Now Playing hero ---------- */
+  #hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 10px 0 34px;
+  }
+  .hero-art {
+    width: 160px; height: 160px;
+    border-radius: 20px;
+    background: var(--panel-2);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    margin-bottom: 18px;
+    box-shadow: 0 10px 40px rgba(255,140,26,0.12);
+  }
+  .hero-art img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
+  .hero-art .logo-fallback { width: 100%; height: 100%; font-size: 3em; }
+  .hero-name { font-size: 1.3em; font-weight: 700; margin-bottom: 4px; }
+  .hero-origin { color: var(--text-dim); font-size: 0.85em; margin-bottom: 6px; }
+  .hero-status { color: var(--text-dim); font-size: 0.9em; margin-bottom: 22px; }
+  .hero-play-btn {
+    width: 84px; height: 84px;
+    border-radius: 50%;
+    background: var(--orange);
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 24px rgba(255,140,26,0.35);
+    transition: transform 0.12s;
+  }
+  .hero-play-btn:hover { transform: scale(1.04); }
+  .hero-play-btn:active { transform: scale(0.97); }
+  .hero-play-btn svg { width: 34px; height: 34px; fill: #000; }
+
+  /* ---------- World tab filter chips ---------- */
+  .chip-row {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    margin-bottom: 10px;
+  }
+  .chip-row::-webkit-scrollbar { display: none; }
+  .filter-chip {
+    flex-shrink: 0;
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text-dim);
+    font-size: 0.85em;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+  }
+  .filter-chip.active { background: var(--orange); border-color: var(--orange); color: #000; }
+
   .tabs {
     display: flex;
     gap: 6px;
@@ -285,15 +345,35 @@
 </div>
 
 <main id="app">
+  <div id="hero" style="display:none;">
+    <div class="hero-art">
+      <img id="heroLogo" src="" alt="" style="display:none;">
+      <div class="logo-fallback" id="heroLogoFallback" style="display:none;">📻</div>
+    </div>
+    <div class="hero-name" id="heroName">—</div>
+    <div class="hero-origin" id="heroOrigin" style="display:none;"></div>
+    <div class="hero-status" id="heroStatus">Спряно</div>
+    <button id="heroPlayBtn" class="hero-play-btn">
+      <svg id="heroPlayIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+    </button>
+  </div>
+
   <div class="tabs">
     <div class="tab active" data-tab="favorites">⭐ Любими</div>
     <div class="tab" data-tab="all">📻 Подбрани</div>
+    <div class="tab" data-tab="world">🌍 Свят</div>
   </div>
 
   <input type="text" id="searchBox" placeholder="Търси станция..." style="display:none;">
 
+  <div id="worldChips" style="display:none;">
+    <div class="chip-row" id="countryChips"></div>
+    <div class="chip-row" id="genreChips"></div>
+  </div>
+
   <div id="favoritesList"></div>
   <div id="allList" style="display:none;"></div>
+  <div id="worldList" style="display:none;"></div>
 </main>
 
 <div id="nowPlaying">
@@ -358,6 +438,10 @@ const els = {
   loginError: document.getElementById('loginError'),
   favoritesList: document.getElementById('favoritesList'),
   allList: document.getElementById('allList'),
+  worldList: document.getElementById('worldList'),
+  worldChips: document.getElementById('worldChips'),
+  countryChips: document.getElementById('countryChips'),
+  genreChips: document.getElementById('genreChips'),
   searchBox: document.getElementById('searchBox'),
   nowPlaying: document.getElementById('nowPlaying'),
   npLogo: document.getElementById('npLogo'),
@@ -366,6 +450,14 @@ const els = {
   npStatus: document.getElementById('npStatus'),
   playPauseBtn: document.getElementById('playPauseBtn'),
   playIcon: document.getElementById('playIcon'),
+  hero: document.getElementById('hero'),
+  heroLogo: document.getElementById('heroLogo'),
+  heroLogoFallback: document.getElementById('heroLogoFallback'),
+  heroName: document.getElementById('heroName'),
+  heroOrigin: document.getElementById('heroOrigin'),
+  heroStatus: document.getElementById('heroStatus'),
+  heroPlayBtn: document.getElementById('heroPlayBtn'),
+  heroPlayIcon: document.getElementById('heroPlayIcon'),
   player: document.getElementById('player'),
 };
 
@@ -506,6 +598,7 @@ function playStation(station) {
   updateNowPlaying();
   renderFavoritesList();
   renderAllList();
+  renderWorldList();
 }
 
 function stopPlayback() {
@@ -513,6 +606,7 @@ function stopPlayback() {
   els.player.removeAttribute('src');
   currentStation = null;
   els.nowPlaying.classList.remove('visible');
+  els.hero.style.display = 'none';
 }
 
 function togglePlayPause() {
@@ -522,30 +616,55 @@ function togglePlayPause() {
 }
 
 els.playPauseBtn.addEventListener('click', togglePlayPause);
-els.player.addEventListener('playing', () => { els.npStatus.textContent = 'На живо'; setPlayIcon(true); renderFavoritesList(); renderAllList(); });
-els.player.addEventListener('pause', () => { els.npStatus.textContent = 'На пауза'; setPlayIcon(false); renderFavoritesList(); renderAllList(); });
-els.player.addEventListener('waiting', () => { els.npStatus.textContent = 'Свързване…'; });
-els.player.addEventListener('error', () => { els.npStatus.textContent = 'Грешка при свързване'; });
+els.heroPlayBtn.addEventListener('click', togglePlayPause);
+els.player.addEventListener('playing', () => { setStatus('На живо'); setPlayIcon(true); renderFavoritesList(); renderAllList(); renderWorldList(); });
+els.player.addEventListener('pause', () => { setStatus('На пауза'); setPlayIcon(false); renderFavoritesList(); renderAllList(); renderWorldList(); });
+els.player.addEventListener('waiting', () => { setStatus('Свързване…'); });
+els.player.addEventListener('error', () => { setStatus('Грешка при свързване'); });
+
+function setStatus(text) {
+  els.npStatus.textContent = text;
+  els.heroStatus.textContent = text;
+}
 
 function setPlayIcon(playing) {
-  els.playIcon.innerHTML = playing
-    ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>'
-    : '<path d="M8 5v14l11-7z"/>';
+  const d = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M8 5v14l11-7z"/>';
+  els.playIcon.innerHTML = d;
+  els.heroPlayIcon.innerHTML = d;
 }
 
 function updateNowPlaying() {
-  if (!currentStation) { els.nowPlaying.classList.remove('visible'); return; }
+  if (!currentStation) {
+    els.nowPlaying.classList.remove('visible');
+    els.hero.style.display = 'none';
+    return;
+  }
   els.nowPlaying.classList.add('visible');
+  els.hero.style.display = 'flex';
   els.npName.textContent = currentStation.name;
-  els.npStatus.textContent = 'Свързване…';
+  els.heroName.textContent = currentStation.name;
+  setStatus('Свързване…');
+
+  if (currentStation.source === 'radioBrowser') {
+    els.heroOrigin.textContent = '🌍 ' + (currentStation.country || currentStation.subtitle);
+    els.heroOrigin.style.display = '';
+  } else {
+    els.heroOrigin.style.display = 'none';
+  }
+
   const logo = logoSrcFor(currentStation);
   if (logo) {
     els.npLogo.src = logo;
     els.npLogo.style.display = '';
     els.npLogoFallback.style.display = 'none';
+    els.heroLogo.src = logo;
+    els.heroLogo.style.display = '';
+    els.heroLogoFallback.style.display = 'none';
   } else {
     els.npLogo.style.display = 'none';
     els.npLogoFallback.style.display = 'flex';
+    els.heroLogo.style.display = 'none';
+    els.heroLogoFallback.style.display = 'flex';
   }
 }
 
@@ -637,22 +756,180 @@ function renderAllList() {
   filtered.forEach(s => els.allList.appendChild(stationCard(s)));
 }
 
+// ---------- World (Radio Browser) ----------
+// Same trick the app uses (Unicode Regional Indicator Symbols) - works for
+// any ISO alpha-2 code without a hardcoded per-country table.
+function flagFor(code) {
+  if (!code || code.length !== 2) return '';
+  const base = 0x1F1E6;
+  const upper = code.toUpperCase();
+  const a = upper.charCodeAt(0) - 65, b = upper.charCodeAt(1) - 65;
+  if (a < 0 || a > 25 || b < 0 || b > 25) return '';
+  return String.fromCodePoint(base + a) + String.fromCodePoint(base + b);
+}
+
+const RB_BASE = 'https://all.api.radio-browser.info/json';
+const BASE_QUICK_COUNTRIES = ['BG', 'GR', 'RO', 'TR', 'IT', 'DE', 'GB', 'US'];
+const GENRES = ['rock', 'pop', 'news', 'jazz', 'talk', 'dance'];
+
+function detectedCountry() {
+  try {
+    const region = new Intl.Locale(navigator.language).maximize().region;
+    return region || null;
+  } catch { return null; }
+}
+
+function quickCountries() {
+  const detected = detectedCountry();
+  if (!detected) return BASE_QUICK_COUNTRIES;
+  return [detected, ...BASE_QUICK_COUNTRIES.filter(c => c !== detected)];
+}
+
+function rbStationFromJson(j) {
+  return {
+    id: j.stationuuid,
+    name: j.name || '',
+    subtitle: j.country || '',
+    url: j.url_resolved || j.url,
+    logoUrl: j.favicon || null,
+    country: (j.countrycode || '').toUpperCase(),
+    category: (j.tags || '').split(',')[0] || '',
+    source: 'radioBrowser',
+  };
+}
+
+async function rbFetch(path, params) {
+  const url = new URL(RB_BASE + path);
+  url.searchParams.set('hidebroken', 'true');
+  Object.entries(params || {}).forEach(([k, v]) => url.searchParams.set(k, v));
+  // 12s, not the app's own 5s - a browser's first connection to a brand
+  // new host pays a real DNS/TLS handshake cost that a warm mobile app
+  // process doesn't, and a cold-start timeout here would otherwise abort
+  // a request that was actually going to succeed.
+  const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+  const json = await res.json();
+  return json.map(rbStationFromJson);
+}
+
+let worldResults = [];
+let worldLoading = false;
+let activeCountry = null;
+let activeGenre = null;
+let worldSearchQuery = '';
+
+async function loadWorld(fetchFn) {
+  worldLoading = true;
+  renderWorldList();
+  try {
+    worldResults = await fetchFn();
+  } catch {
+    worldResults = [];
+  }
+  worldLoading = false;
+  renderWorldList();
+}
+
+function initWorldChips() {
+  els.countryChips.innerHTML = '';
+  quickCountries().forEach(code => {
+    const chip = document.createElement('div');
+    chip.className = 'filter-chip';
+    chip.textContent = flagFor(code) + ' ' + code;
+    chip.addEventListener('click', () => {
+      activeCountry = code; activeGenre = null; worldSearchQuery = ''; els.searchBox.value = '';
+      updateChipActive();
+      loadWorld(() => rbFetch('/stations/search', { countrycode: code, order: 'clickcount', reverse: 'true', limit: 40 }));
+    });
+    els.countryChips.appendChild(chip);
+  });
+
+  els.genreChips.innerHTML = '';
+  GENRES.forEach(tag => {
+    const chip = document.createElement('div');
+    chip.className = 'filter-chip';
+    chip.textContent = tag[0].toUpperCase() + tag.slice(1);
+    chip.addEventListener('click', () => {
+      activeGenre = tag; activeCountry = null; worldSearchQuery = ''; els.searchBox.value = '';
+      updateChipActive();
+      loadWorld(() => rbFetch('/stations/search', { tag, order: 'clickcount', reverse: 'true', limit: 40 }));
+    });
+    els.genreChips.appendChild(chip);
+  });
+}
+
+function updateChipActive() {
+  [...els.countryChips.children].forEach((c, i) => c.classList.toggle('active', quickCountries()[i] === activeCountry));
+  [...els.genreChips.children].forEach((c, i) => c.classList.toggle('active', GENRES[i] === activeGenre));
+}
+
+function renderWorldList() {
+  els.worldList.innerHTML = '';
+  if (worldLoading) {
+    const loading = document.createElement('div');
+    loading.className = 'empty-state';
+    loading.textContent = 'Зареждане…';
+    els.worldList.appendChild(loading);
+    return;
+  }
+  if (worldResults.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'Не успяхме да заредим станции. Опитай отново.';
+    els.worldList.appendChild(empty);
+    return;
+  }
+  worldResults.forEach(s => els.worldList.appendChild(stationCard(s)));
+}
+
+let worldSearchTimer = null;
+function onWorldSearch(q) {
+  worldSearchQuery = q;
+  clearTimeout(worldSearchTimer);
+  if (!q.trim()) {
+    activeCountry = null; activeGenre = null; updateChipActive();
+    loadWorld(() => rbFetch('/stations/search', { order: 'clickcount', reverse: 'true', limit: 20 }));
+    return;
+  }
+  worldSearchTimer = setTimeout(() => {
+    activeCountry = null; activeGenre = null; updateChipActive();
+    loadWorld(() => rbFetch('/stations/search', { name: q.trim(), order: 'clickcount', reverse: 'true', limit: 40 }));
+  }, 400);
+}
+
+initWorldChips();
+
 // ---------- Tabs / search ----------
 document.querySelectorAll('.tab').forEach(tabEl => {
   tabEl.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     tabEl.classList.add('active');
     activeTab = tabEl.dataset.tab;
+
     els.favoritesList.style.display = activeTab === 'favorites' ? '' : 'none';
     els.allList.style.display = activeTab === 'all' ? '' : 'none';
-    els.searchBox.style.display = activeTab === 'all' ? '' : 'none';
+    els.worldList.style.display = activeTab === 'world' ? '' : 'none';
+    els.worldChips.style.display = activeTab === 'world' ? '' : 'none';
+    els.searchBox.style.display = activeTab === 'favorites' ? 'none' : '';
+
+    if (activeTab === 'all') {
+      els.searchBox.placeholder = 'Търси станция...';
+      els.searchBox.value = searchQuery;
+    } else if (activeTab === 'world') {
+      els.searchBox.placeholder = 'Търси държава, жанр или станция...';
+      els.searchBox.value = worldSearchQuery;
+      if (worldResults.length === 0 && !worldLoading) {
+        loadWorld(() => rbFetch('/stations/search', { order: 'clickcount', reverse: 'true', limit: 20 }));
+      }
+    }
   });
 });
 
 els.searchBox.addEventListener('input', (e) => {
-  searchQuery = e.target.value;
-  renderAllList();
+  if (activeTab === 'all') { searchQuery = e.target.value; renderAllList(); }
+  else if (activeTab === 'world') { onWorldSearch(e.target.value); }
 });
+
+// Popular-by-default, shown the first time the World tab is actually opened.
 </script>
 </body>
 </html>
