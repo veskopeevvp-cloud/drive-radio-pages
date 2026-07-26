@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drive Radio — слушай от компютъра</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%23000%22/><circle cx=%2250%22 cy=%2250%22 r=%2232%22 fill=%22%23ff8c1a%22/><path d=%22M42 34 L70 50 L42 66 Z%22 fill=%22%23000%22/></svg>">
+<style>
+  :root {
+    --bg: #050505;
+    --panel: #131313;
+    --panel-2: #1c1c1c;
+    --border: #2a2a2a;
+    --orange: #ff8c1a;
+    --orange-dim: #7a3f00;
+    --text: #e8e8e8;
+    --text-dim: #9a9a9a;
+    --amber: #ffc107;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  a { color: var(--orange); }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: rgba(5,5,5,0.98);
+    z-index: 20;
+  }
+  header .logo {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: var(--orange);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  header .logo svg { width: 20px; height: 20px; fill: #000; }
+  header h1 {
+    font-size: 1.15em;
+    margin: 0;
+    letter-spacing: 0.3px;
+  }
+  header h1 b { color: var(--orange); }
+  header .spacer { flex: 1; }
+  header .user {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 0.9em;
+    color: var(--text-dim);
+  }
+  header .user img { width: 30px; height: 30px; border-radius: 50%; }
+
+  main {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 28px 20px 140px;
+  }
+
+  /* ---------- Login screen ---------- */
+  #loginScreen {
+    max-width: 380px;
+    margin: 60px auto;
+    text-align: center;
+    padding: 0 20px;
+  }
+  #loginScreen p { color: var(--text-dim); margin-bottom: 28px; line-height: 1.5; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%;
+    padding: 13px 18px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .btn:hover { background: #262626; border-color: #3a3a3a; }
+  .btn.primary { background: var(--orange); border-color: var(--orange); color: #000; }
+  .btn.primary:hover { background: #ffa03d; }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .divider {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--text-dim); font-size: 0.85em;
+    margin: 18px 0;
+  }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  #emailForm { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+  #emailForm input {
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    font-size: 0.95em;
+  }
+  #emailForm input:focus { outline: none; border-color: var(--orange); }
+  #loginError {
+    color: #ff6b6b;
+    font-size: 0.85em;
+    margin-top: 10px;
+    min-height: 1.2em;
+  }
+
+  /* ---------- App ---------- */
+  #app { display: none; }
+
+  .tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    padding: 12px 4px;
+    margin-right: 22px;
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 0.95em;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    user-select: none;
+  }
+  .tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+
+  #searchBox {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    font-size: 0.95em;
+    margin-bottom: 16px;
+  }
+  #searchBox:focus { outline: none; border-color: var(--orange); }
+
+  .empty-state {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 60px 20px;
+    line-height: 1.6;
+  }
+
+  .station-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .station-card:hover { border-color: #3a3a3a; }
+  .station-card.playing { background: #3d1f00; border-color: var(--orange); }
+  .station-card img.logo {
+    width: 46px; height: 46px;
+    border-radius: 8px;
+    object-fit: contain;
+    background: #fff;
+    flex-shrink: 0;
+  }
+  .station-card .logo-fallback {
+    width: 46px; height: 46px;
+    border-radius: 8px;
+    background: var(--panel-2);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    color: var(--text-dim);
+    font-size: 1.3em;
+  }
+  .station-card .info { flex: 1; min-width: 0; }
+  .station-card .info .name {
+    font-weight: 600;
+    font-size: 0.98em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .station-card .info .sub {
+    color: var(--text-dim);
+    font-size: 0.83em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .station-card .origin {
+    color: var(--text-dim);
+    font-size: 0.78em;
+  }
+  .star-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 1.35em;
+    line-height: 1;
+    padding: 6px;
+    color: var(--amber);
+    flex-shrink: 0;
+  }
+  .eq {
+    display: inline-flex; align-items: flex-end; gap: 2px;
+    height: 14px; flex-shrink: 0;
+  }
+  .eq span {
+    width: 3px; background: #4ade80; border-radius: 2px;
+    animation: eqBounce 0.9s ease-in-out infinite;
+  }
+  .eq span:nth-child(1) { height: 40%; animation-delay: 0s; }
+  .eq span:nth-child(2) { height: 100%; animation-delay: 0.2s; }
+  .eq span:nth-child(3) { height: 65%; animation-delay: 0.4s; }
+  @keyframes eqBounce { 0%,100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }
+
+  /* ---------- Now playing bar ---------- */
+  #nowPlaying {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    background: #0d0d0d;
+    border-top: 1px solid var(--border);
+    padding: 12px 20px;
+    display: none;
+    align-items: center;
+    gap: 14px;
+    z-index: 30;
+  }
+  #nowPlaying.visible { display: flex; }
+  #nowPlaying img, #nowPlaying .logo-fallback {
+    width: 44px; height: 44px; border-radius: 8px; object-fit: contain; background: #fff; flex-shrink: 0;
+  }
+  #nowPlaying .logo-fallback { background: var(--panel-2); display: flex; align-items: center; justify-content: center; color: var(--text-dim); }
+  #nowPlaying .npInfo { flex: 1; min-width: 0; }
+  #nowPlaying .npInfo .name { font-weight: 700; font-size: 0.95em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #nowPlaying .npInfo .status { color: var(--text-dim); font-size: 0.8em; }
+  #playPauseBtn {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: var(--orange);
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  #playPauseBtn svg { width: 18px; height: 18px; fill: #000; }
+
+  footer {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.8em;
+    padding: 30px 20px 160px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+  <h1>Drive<b>Radio</b></h1>
+  <div class="spacer"></div>
+  <div class="user" id="userBar" style="display:none;">
+    <img id="userPhoto" src="" alt="" style="display:none;">
+    <span id="userEmail"></span>
+    <button class="btn" id="signOutBtn" style="width:auto; padding:8px 14px;">Изход</button>
+  </div>
+</header>
+
+<div id="loginScreen">
+  <p>Влез със същия профил, който ползваш в приложението Drive Radio, за да видиш и слушаш любимите си станции от компютъра.</p>
+  <button class="btn primary" id="googleSignInBtn">Вход с Google</button>
+  <div class="divider">или с имейл</div>
+  <form id="emailForm">
+    <input type="email" id="emailInput" placeholder="Имейл" required autocomplete="username">
+    <input type="password" id="passwordInput" placeholder="Парола" required autocomplete="current-password">
+    <button class="btn" type="submit">Вход с имейл</button>
+  </form>
+  <div id="loginError"></div>
+</div>
+
+<main id="app">
+  <div class="tabs">
+    <div class="tab active" data-tab="favorites">⭐ Любими</div>
+    <div class="tab" data-tab="all">📻 Подбрани</div>
+  </div>
+
+  <input type="text" id="searchBox" placeholder="Търси станция..." style="display:none;">
+
+  <div id="favoritesList"></div>
+  <div id="allList" style="display:none;"></div>
+</main>
+
+<div id="nowPlaying">
+  <img id="npLogo" src="" alt="" style="display:none;">
+  <div class="logo-fallback" id="npLogoFallback" style="display:none;">📻</div>
+  <div class="npInfo">
+    <div class="name" id="npName">—</div>
+    <div class="status" id="npStatus">Спряно</div>
+  </div>
+  <button id="playPauseBtn">
+    <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+  </button>
+</div>
+
+<audio id="player" preload="none"></audio>
+
+<footer>
+  Drive Radio &middot; <a href="privacy-policy.html">Политика за поверителност</a>
+</footer>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider,
+  signInWithEmailAndPassword, signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDnFRHU5zQe7_4Mg7VU5D-yrrvc81_Oxzs",
+  authDomain: "drive-radio-b2473.firebaseapp.com",
+  projectId: "drive-radio-b2473",
+  storageBucket: "drive-radio-b2473.firebasestorage.app",
+  messagingSenderId: "1043976755703",
+  appId: "1:1043976755703:web:1e44f4ab38ad50cf2936f2"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const FREE_FAVORITES_CAP = 10;
+
+let curatedStations = [];       // full catalog, loaded from stations.json
+let curatedById = new Map();
+let favoriteStations = [];      // resolved, playable RadioStation-shaped objects, in order
+let isPremium = false;
+let currentUser = null;
+let unsubscribeFavorites = null;
+let currentStation = null;
+let searchQuery = '';
+let activeTab = 'favorites';
+
+const els = {
+  loginScreen: document.getElementById('loginScreen'),
+  appEl: document.getElementById('app'),
+  userBar: document.getElementById('userBar'),
+  userPhoto: document.getElementById('userPhoto'),
+  userEmail: document.getElementById('userEmail'),
+  loginError: document.getElementById('loginError'),
+  favoritesList: document.getElementById('favoritesList'),
+  allList: document.getElementById('allList'),
+  searchBox: document.getElementById('searchBox'),
+  nowPlaying: document.getElementById('nowPlaying'),
+  npLogo: document.getElementById('npLogo'),
+  npLogoFallback: document.getElementById('npLogoFallback'),
+  npName: document.getElementById('npName'),
+  npStatus: document.getElementById('npStatus'),
+  playPauseBtn: document.getElementById('playPauseBtn'),
+  playIcon: document.getElementById('playIcon'),
+  player: document.getElementById('player'),
+};
+
+// ---------- Station catalog ----------
+fetch('stations.json').then(r => r.json()).then(list => {
+  curatedStations = list.map(s => ({ ...s, source: 'curated' }));
+  curatedById = new Map(curatedStations.map(s => [s.id, s]));
+  renderAllList();
+});
+
+function logoSrcFor(station) {
+  if (station.logoUrl) return station.logoUrl;
+  if (station.logoAsset) return station.logoAsset;
+  return null;
+}
+
+// ---------- Auth ----------
+document.getElementById('googleSignInBtn').addEventListener('click', () => {
+  els.loginError.textContent = '';
+  signInWithPopup(auth, new GoogleAuthProvider()).catch(e => {
+    els.loginError.textContent = 'Неуспешен вход: ' + e.message;
+  });
+});
+
+document.getElementById('emailForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  els.loginError.textContent = '';
+  const email = document.getElementById('emailInput').value.trim();
+  const password = document.getElementById('passwordInput').value;
+  signInWithEmailAndPassword(auth, email, password).catch(err => {
+    els.loginError.textContent = 'Грешен имейл или парола.';
+  });
+});
+
+document.getElementById('signOutBtn').addEventListener('click', () => signOut(auth));
+
+onAuthStateChanged(auth, async (user) => {
+  currentUser = user;
+  if (unsubscribeFavorites) { unsubscribeFavorites(); unsubscribeFavorites = null; }
+
+  if (!user) {
+    els.loginScreen.style.display = '';
+    els.appEl.style.display = 'none';
+    els.userBar.style.display = 'none';
+    favoriteStations = [];
+    stopPlayback();
+    return;
+  }
+
+  els.loginScreen.style.display = 'none';
+  els.appEl.style.display = '';
+  els.userBar.style.display = 'flex';
+  els.userEmail.textContent = user.email || '';
+  if (user.photoURL) {
+    els.userPhoto.src = user.photoURL;
+    els.userPhoto.style.display = '';
+  } else {
+    els.userPhoto.style.display = 'none';
+  }
+
+  // Own user doc - only used to read premium status (client can read its
+  // own doc per firestore.rules; the 'premium' field itself is only ever
+  // written server-side by the verifyPurchase Cloud Function).
+  const userDoc = await getDoc(doc(db, 'users', user.uid));
+  const premiumData = userDoc.data()?.premium;
+  const status = premiumData?.status;
+  isPremium = status === 'active' || status === 'canceled' || status === 'grace_period';
+
+  // Same subcollection/doc the app's favorites_sync_service.dart reads and
+  // writes - live-listened so a change made in the app shows up here
+  // without a manual refresh, and vice versa.
+  unsubscribeFavorites = onSnapshot(doc(db, 'users', user.uid, 'sync', 'favorites'), (snap) => {
+    const raw = snap.data()?.stations || [];
+    favoriteStations = raw.map(resolveFavoriteEntry).filter(Boolean);
+    renderFavoritesList();
+    if (activeTab === 'all') renderAllList();
+  });
+});
+
+function resolveFavoriteEntry(entry) {
+  if (entry.source === 'curated') {
+    return curatedById.get(entry.id) || null;
+  }
+  // Radio Browser favorites carry their own full snapshot already (see
+  // favorites_sync_service.dart) - no lookup needed.
+  return {
+    id: entry.id,
+    name: entry.name,
+    subtitle: entry.subtitle || '',
+    url: entry.url,
+    logoUrl: entry.logoUrl || null,
+    country: entry.country || '',
+    category: entry.category || '',
+    source: 'radioBrowser',
+  };
+}
+
+async function pushFavorites() {
+  if (!currentUser) return;
+  const payload = favoriteStations.map(s => {
+    if (s.source === 'curated') return { id: s.id, source: 'curated' };
+    return {
+      id: s.id, source: 'radioBrowser', name: s.name, subtitle: s.subtitle,
+      url: s.url, logoUrl: s.logoUrl, country: s.country, category: s.category,
+    };
+  });
+  await setDoc(doc(db, 'users', currentUser.uid, 'sync', 'favorites'), {
+    stations: payload,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+function isFavorite(station) {
+  return favoriteStations.some(s => s.id === station.id);
+}
+
+function toggleFavorite(station) {
+  const adding = !isFavorite(station);
+  if (adding && !isPremium && favoriteStations.length >= FREE_FAVORITES_CAP) {
+    alert('Достигна лимита от 10 любими станции. С Premium можеш да запазваш неограничен брой и да ги синхронизираш между устройствата си.');
+    return;
+  }
+  if (adding) {
+    favoriteStations = [...favoriteStations, station];
+  } else {
+    favoriteStations = favoriteStations.filter(s => s.id !== station.id);
+  }
+  renderFavoritesList();
+  renderAllList();
+  pushFavorites();
+}
+
+// ---------- Playback ----------
+function playStation(station) {
+  currentStation = station;
+  els.player.src = station.url;
+  els.player.play().catch(() => {});
+  updateNowPlaying();
+  renderFavoritesList();
+  renderAllList();
+}
+
+function stopPlayback() {
+  els.player.pause();
+  els.player.removeAttribute('src');
+  currentStation = null;
+  els.nowPlaying.classList.remove('visible');
+}
+
+function togglePlayPause() {
+  if (!currentStation) return;
+  if (els.player.paused) { els.player.play().catch(() => {}); }
+  else { els.player.pause(); }
+}
+
+els.playPauseBtn.addEventListener('click', togglePlayPause);
+els.player.addEventListener('playing', () => { els.npStatus.textContent = 'На живо'; setPlayIcon(true); renderFavoritesList(); renderAllList(); });
+els.player.addEventListener('pause', () => { els.npStatus.textContent = 'На пауза'; setPlayIcon(false); renderFavoritesList(); renderAllList(); });
+els.player.addEventListener('waiting', () => { els.npStatus.textContent = 'Свързване…'; });
+els.player.addEventListener('error', () => { els.npStatus.textContent = 'Грешка при свързване'; });
+
+function setPlayIcon(playing) {
+  els.playIcon.innerHTML = playing
+    ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>'
+    : '<path d="M8 5v14l11-7z"/>';
+}
+
+function updateNowPlaying() {
+  if (!currentStation) { els.nowPlaying.classList.remove('visible'); return; }
+  els.nowPlaying.classList.add('visible');
+  els.npName.textContent = currentStation.name;
+  els.npStatus.textContent = 'Свързване…';
+  const logo = logoSrcFor(currentStation);
+  if (logo) {
+    els.npLogo.src = logo;
+    els.npLogo.style.display = '';
+    els.npLogoFallback.style.display = 'none';
+  } else {
+    els.npLogo.style.display = 'none';
+    els.npLogoFallback.style.display = 'flex';
+  }
+}
+
+// ---------- Rendering ----------
+function stationCard(station) {
+  const card = document.createElement('div');
+  card.className = 'station-card' + (currentStation?.id === station.id ? ' playing' : '');
+
+  const logo = logoSrcFor(station);
+  if (logo) {
+    const img = document.createElement('img');
+    img.className = 'logo';
+    img.loading = 'lazy';
+    img.src = logo;
+    img.alt = '';
+    img.onerror = () => { img.replaceWith(logoFallback()); };
+    card.appendChild(img);
+  } else {
+    card.appendChild(logoFallback());
+  }
+
+  const info = document.createElement('div');
+  info.className = 'info';
+  const name = document.createElement('div');
+  name.className = 'name';
+  name.textContent = station.name;
+  const sub = document.createElement('div');
+  sub.className = 'sub';
+  sub.textContent = station.source === 'radioBrowser'
+    ? '🌍 ' + (station.country || station.subtitle)
+    : station.subtitle;
+  info.appendChild(name);
+  info.appendChild(sub);
+  card.appendChild(info);
+
+  if (currentStation?.id === station.id && !els.player.paused) {
+    const eq = document.createElement('span');
+    eq.className = 'eq';
+    eq.innerHTML = '<span></span><span></span><span></span>';
+    card.appendChild(eq);
+  }
+
+  const star = document.createElement('button');
+  star.className = 'star-btn';
+  star.textContent = isFavorite(station) ? '★' : '☆';
+  star.title = isFavorite(station) ? 'Премахни от любими' : 'Добави в любими';
+  star.addEventListener('click', (e) => { e.stopPropagation(); toggleFavorite(station); });
+  card.appendChild(star);
+
+  card.addEventListener('click', () => playStation(station));
+  return card;
+}
+
+function logoFallback() {
+  const d = document.createElement('div');
+  d.className = 'logo-fallback';
+  d.textContent = '📻';
+  return d;
+}
+
+function renderFavoritesList() {
+  els.favoritesList.innerHTML = '';
+  if (favoriteStations.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'Нямаш любими станции. Отиди в „Подбрани“ и добави с ⭐.';
+    els.favoritesList.appendChild(empty);
+    return;
+  }
+  favoriteStations.forEach(s => els.favoritesList.appendChild(stationCard(s)));
+}
+
+function renderAllList() {
+  els.allList.innerHTML = '';
+  const q = searchQuery.trim().toLowerCase();
+  const filtered = q
+    ? curatedStations.filter(s =>
+        s.name.toLowerCase().includes(q) ||
+        s.subtitle.toLowerCase().includes(q) ||
+        s.category.toLowerCase().includes(q))
+    : curatedStations;
+  if (filtered.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'Няма намерени станции.';
+    els.allList.appendChild(empty);
+    return;
+  }
+  filtered.forEach(s => els.allList.appendChild(stationCard(s)));
+}
+
+// ---------- Tabs / search ----------
+document.querySelectorAll('.tab').forEach(tabEl => {
+  tabEl.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tabEl.classList.add('active');
+    activeTab = tabEl.dataset.tab;
+    els.favoritesList.style.display = activeTab === 'favorites' ? '' : 'none';
+    els.allList.style.display = activeTab === 'all' ? '' : 'none';
+    els.searchBox.style.display = activeTab === 'all' ? '' : 'none';
+  });
+});
+
+els.searchBox.addEventListener('input', (e) => {
+  searchQuery = e.target.value;
+  renderAllList();
+});
+</script>
+</body>
+</html>
