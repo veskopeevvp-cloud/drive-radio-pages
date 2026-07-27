@@ -134,11 +134,12 @@
     margin-bottom: 18px;
     box-shadow: 0 10px 40px rgba(255,140,26,0.12);
   }
-  .hero-art img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
+  .hero-art img { width: 100%; height: 100%; object-fit: contain; }
   .hero-art .logo-fallback { width: 100%; height: 100%; font-size: 3em; }
   .hero-name { font-size: 1.3em; font-weight: 700; margin-bottom: 4px; }
   .hero-origin { color: var(--text-dim); font-size: 0.85em; margin-bottom: 6px; }
   .hero-status { color: var(--text-dim); font-size: 0.9em; margin-bottom: 22px; }
+  .hero-song { display: none; color: var(--orange); font-weight: 600; font-size: 0.95em; margin-bottom: 22px; }
   .hero-play-btn {
     width: 84px; height: 84px;
     border-radius: 50%;
@@ -186,8 +187,31 @@
     max-height: calc(100vh - 84px - 42px);
     overflow-y: auto;
     overscroll-behavior: contain;
+    padding-right: 28px;
     padding-bottom: 40px;
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: #3a3a3a transparent;
   }
+  .station-list-col::-webkit-scrollbar { width: 8px; }
+  .station-list-col::-webkit-scrollbar-track { background: transparent; }
+  .station-list-col::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 8px; }
+  .station-list-col::-webkit-scrollbar-thumb:hover { background: #4a4a4a; }
+
+  /* Sticky within the list column's own scroll area, not the page - stays
+     pinned while the cards below scroll underneath it. Needs an opaque
+     background so scrolled-past cards don't show through the gap between
+     chip rows/tabs while pinned. */
+  .station-list-col .tabs,
+  .station-list-col #searchBox,
+  .station-list-col #worldChips {
+    position: sticky;
+    background: var(--bg);
+    z-index: 5;
+  }
+  .station-list-col .tabs { top: 0; padding-top: 2px; }
+  .station-list-col #searchBox { top: 70px; }
+  .station-list-col #worldChips { top: 130px; padding-top: 2px; }
 
   @media (max-width: 860px) {
     .app-content { display: block; }
@@ -199,7 +223,13 @@
     .station-list-col {
       max-height: none;
       overflow-y: visible;
+      padding-right: 0;
       padding-bottom: 140px;
+    }
+    .station-list-col .tabs,
+    .station-list-col #searchBox,
+    .station-list-col #worldChips {
+      position: static;
     }
   }
 
@@ -282,7 +312,6 @@
     width: 46px; height: 46px;
     border-radius: 8px;
     object-fit: contain;
-    background: #fff;
     flex-shrink: 0;
   }
   .station-card .logo-fallback {
@@ -344,7 +373,7 @@
   }
   #nowPlaying.visible { display: flex; }
   #nowPlaying img, #nowPlaying .logo-fallback {
-    width: 44px; height: 44px; border-radius: 8px; object-fit: contain; background: #fff; flex-shrink: 0;
+    width: 44px; height: 44px; border-radius: 8px; object-fit: contain; flex-shrink: 0;
   }
   #nowPlaying .logo-fallback { background: var(--panel-2); display: flex; align-items: center; justify-content: center; color: var(--text-dim); }
   #nowPlaying .npInfo { flex: 1; min-width: 0; }
@@ -405,6 +434,10 @@
         <div class="hero-name" id="heroName">—</div>
         <div class="hero-origin" id="heroOrigin" style="display:none;"></div>
         <div class="hero-status" id="heroStatus">Спряно</div>
+        <!-- Placeholder only - real song title/artist would need a
+             server-side proxy (browsers can't read ICY metadata cross-origin,
+             see the CORS check done earlier this session), not built yet. -->
+        <div class="hero-song" id="heroSong">🎵 На живо</div>
         <button id="heroPlayBtn" class="hero-play-btn">
           <svg id="heroPlayIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
         </button>
@@ -516,6 +549,7 @@ const els = {
   heroName: document.getElementById('heroName'),
   heroOrigin: document.getElementById('heroOrigin'),
   heroStatus: document.getElementById('heroStatus'),
+  heroSong: document.getElementById('heroSong'),
   heroPlayBtn: document.getElementById('heroPlayBtn'),
   heroPlayIcon: document.getElementById('heroPlayIcon'),
   playerEmpty: document.getElementById('playerEmpty'),
@@ -679,14 +713,22 @@ function togglePlayPause() {
 
 els.playPauseBtn.addEventListener('click', togglePlayPause);
 els.heroPlayBtn.addEventListener('click', togglePlayPause);
-els.player.addEventListener('playing', () => { setStatus('На живо'); setPlayIcon(true); renderFavoritesList(); renderAllList(); renderWorldList(); });
-els.player.addEventListener('pause', () => { setStatus('На пауза'); setPlayIcon(false); renderFavoritesList(); renderAllList(); renderWorldList(); });
-els.player.addEventListener('waiting', () => { setStatus('Свързване…'); });
-els.player.addEventListener('error', () => { setStatus('Грешка при свързване'); });
+els.player.addEventListener('playing', () => { els.npStatus.textContent = 'На живо'; setPlayingUI(true); setPlayIcon(true); renderFavoritesList(); renderAllList(); renderWorldList(); });
+els.player.addEventListener('pause', () => { setPlayingUI(false); setStatus('На пауза'); setPlayIcon(false); renderFavoritesList(); renderAllList(); renderWorldList(); });
+els.player.addEventListener('waiting', () => { setPlayingUI(false); setStatus('Свързване…'); });
+els.player.addEventListener('error', () => { setPlayingUI(false); setStatus('Грешка при свързване'); });
 
 function setStatus(text) {
   els.npStatus.textContent = text;
   els.heroStatus.textContent = text;
+}
+
+// Swaps the connection-status line for a "🎵 На живо" tag once audio is
+// actually playing - real song title/artist would need a server-side ICY
+// metadata proxy (stream servers don't send CORS headers, checked earlier).
+function setPlayingUI(playing) {
+  els.heroStatus.style.display = playing ? 'none' : '';
+  els.heroSong.style.display = playing ? 'block' : 'none';
 }
 
 function setPlayIcon(playing) {
@@ -707,6 +749,7 @@ function updateNowPlaying() {
   els.playerEmpty.style.display = 'none';
   els.npName.textContent = currentStation.name;
   els.heroName.textContent = currentStation.name;
+  setPlayingUI(false);
   setStatus('Свързване…');
 
   if (currentStation.source === 'radioBrowser') {
