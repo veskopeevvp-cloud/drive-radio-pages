@@ -204,6 +204,7 @@
      chip rows/tabs while pinned. */
   .station-list-col .tabs,
   .station-list-col #searchBox,
+  .station-list-col #allCountryChips,
   .station-list-col #worldChips {
     position: sticky;
     background: var(--bg);
@@ -211,6 +212,7 @@
   }
   .station-list-col .tabs { top: 0; padding-top: 2px; }
   .station-list-col #searchBox { top: 70px; }
+  .station-list-col #allCountryChips { top: 130px; padding-top: 2px; }
   .station-list-col #worldChips { top: 130px; padding-top: 2px; }
 
   @media (max-width: 860px) {
@@ -228,6 +230,7 @@
     }
     .station-list-col .tabs,
     .station-list-col #searchBox,
+    .station-list-col #allCountryChips,
     .station-list-col #worldChips {
       position: static;
     }
@@ -457,6 +460,8 @@
 
       <input type="text" id="searchBox" placeholder="Търси станция..." style="display:none;">
 
+      <div class="chip-row" id="allCountryChips" style="display:none;"></div>
+
       <div id="worldChips" style="display:none;">
         <div class="chip-row" id="countryChips"></div>
         <div class="chip-row" id="genreChips"></div>
@@ -536,6 +541,7 @@ const els = {
   countryChips: document.getElementById('countryChips'),
   genreChips: document.getElementById('genreChips'),
   searchBox: document.getElementById('searchBox'),
+  allCountryChips: document.getElementById('allCountryChips'),
   nowPlaying: document.getElementById('nowPlaying'),
   npLogo: document.getElementById('npLogo'),
   npLogoFallback: document.getElementById('npLogoFallback'),
@@ -560,6 +566,7 @@ const els = {
 fetch('stations.json').then(r => r.json()).then(list => {
   curatedStations = list.map(s => ({ ...s, source: 'curated' }));
   curatedById = new Map(curatedStations.map(s => [s.id, s]));
+  initAllCountryChips();
   renderAllList();
 });
 
@@ -802,7 +809,7 @@ function stationCard(station) {
   sub.className = 'sub';
   sub.textContent = station.source === 'radioBrowser'
     ? '🌍 ' + (station.country || station.subtitle)
-    : station.subtitle;
+    : (flagFor(station.country) ? flagFor(station.country) + ' ' + station.subtitle : station.subtitle);
   info.appendChild(name);
   info.appendChild(sub);
   card.appendChild(info);
@@ -844,15 +851,61 @@ function renderFavoritesList() {
   favoriteStations.forEach(s => els.favoritesList.appendChild(stationCard(s)));
 }
 
+let allCountryFilter = null;
+
+// Fixed, bounded set (curated catalog only covers 8 countries, unlike the
+// open-ended World tab) - counted live so the chip order tracks whichever
+// country actually has the most stations.
+function curatedCountries() {
+  const counts = new Map();
+  curatedStations.forEach(s => counts.set(s.country, (counts.get(s.country) || 0) + 1));
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([code]) => code);
+}
+
+function initAllCountryChips() {
+  els.allCountryChips.innerHTML = '';
+  const allChip = document.createElement('div');
+  allChip.className = 'filter-chip active';
+  allChip.textContent = 'Всички';
+  allChip.addEventListener('click', () => {
+    allCountryFilter = null;
+    updateAllCountryChipActive();
+    renderAllList();
+  });
+  els.allCountryChips.appendChild(allChip);
+
+  curatedCountries().forEach(code => {
+    const chip = document.createElement('div');
+    chip.className = 'filter-chip';
+    chip.textContent = flagFor(code) + ' ' + code;
+    chip.addEventListener('click', () => {
+      allCountryFilter = code;
+      updateAllCountryChipActive();
+      renderAllList();
+    });
+    els.allCountryChips.appendChild(chip);
+  });
+}
+
+function updateAllCountryChipActive() {
+  const codes = curatedCountries();
+  [...els.allCountryChips.children].forEach((c, i) => {
+    c.classList.toggle('active', i === 0 ? allCountryFilter === null : codes[i - 1] === allCountryFilter);
+  });
+}
+
 function renderAllList() {
   els.allList.innerHTML = '';
   const q = searchQuery.trim().toLowerCase();
-  const filtered = q
-    ? curatedStations.filter(s =>
-        s.name.toLowerCase().includes(q) ||
-        s.subtitle.toLowerCase().includes(q) ||
-        s.category.toLowerCase().includes(q))
+  let filtered = allCountryFilter
+    ? curatedStations.filter(s => s.country === allCountryFilter)
     : curatedStations;
+  if (q) {
+    filtered = filtered.filter(s =>
+      s.name.toLowerCase().includes(q) ||
+      s.subtitle.toLowerCase().includes(q) ||
+      s.category.toLowerCase().includes(q));
+  }
   if (filtered.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
@@ -1016,6 +1069,7 @@ document.querySelectorAll('.tab').forEach(tabEl => {
     els.allList.style.display = activeTab === 'all' ? '' : 'none';
     els.worldList.style.display = activeTab === 'world' ? '' : 'none';
     els.worldChips.style.display = activeTab === 'world' ? '' : 'none';
+    els.allCountryChips.style.display = activeTab === 'all' ? 'flex' : 'none';
     els.searchBox.style.display = activeTab === 'favorites' ? 'none' : '';
 
     if (activeTab === 'all') {
