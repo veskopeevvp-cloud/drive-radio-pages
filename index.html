@@ -61,7 +61,7 @@
   header .user img { width: 30px; height: 30px; border-radius: 50%; }
 
   main {
-    max-width: 880px;
+    max-width: 1180px;
     margin: 0 auto;
     padding: 42px 20px 140px;
   }
@@ -152,6 +152,56 @@
   .hero-play-btn:hover { transform: scale(1.04); }
   .hero-play-btn:active { transform: scale(0.97); }
   .hero-play-btn svg { width: 34px; height: 34px; fill: #000; }
+
+  .player-empty {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 10px 20px 34px;
+    line-height: 1.6;
+  }
+  .player-empty .icon { font-size: 2.4em; margin-bottom: 10px; }
+
+  /* ---------- Desktop two-column layout ---------- */
+  /* The player staying in view while only the station list scrolls is the
+     whole point of this layout - a single position:fixed player would
+     either cover content or need magic-number offsets that break on other
+     resolutions, so instead the player column is sticky *within* the grid
+     and only the list column scrolls, via its own overflow-y. */
+  .app-content {
+    display: grid;
+    grid-template-columns: minmax(280px, 380px) 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+  .player-column {
+    position: sticky;
+    top: 84px;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 84px - 42px);
+  }
+  .player-column > * { width: 100%; }
+  .station-list-col {
+    min-width: 0;
+    max-height: calc(100vh - 84px - 42px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: 40px;
+  }
+
+  @media (max-width: 860px) {
+    .app-content { display: block; }
+    .player-column {
+      position: static;
+      min-height: 0;
+      display: none;
+    }
+    .station-list-col {
+      max-height: none;
+      overflow-y: visible;
+      padding-bottom: 140px;
+    }
+  }
 
   /* ---------- World tab filter chips ---------- */
   .chip-row {
@@ -345,35 +395,45 @@
 </div>
 
 <main id="app">
-  <div id="hero" style="display:none;">
-    <div class="hero-art">
-      <img id="heroLogo" src="" alt="" style="display:none;">
-      <div class="logo-fallback" id="heroLogoFallback" style="display:none;">📻</div>
+  <div class="app-content">
+    <div class="player-column">
+      <div id="hero" style="display:none;">
+        <div class="hero-art">
+          <img id="heroLogo" src="" alt="" style="display:none;">
+          <div class="logo-fallback" id="heroLogoFallback" style="display:none;">📻</div>
+        </div>
+        <div class="hero-name" id="heroName">—</div>
+        <div class="hero-origin" id="heroOrigin" style="display:none;"></div>
+        <div class="hero-status" id="heroStatus">Спряно</div>
+        <button id="heroPlayBtn" class="hero-play-btn">
+          <svg id="heroPlayIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+      </div>
+      <div id="playerEmpty" class="player-empty">
+        <div class="icon">🎵</div>
+        Избери станция от списъка,<br>за да чуеш нещо.
+      </div>
     </div>
-    <div class="hero-name" id="heroName">—</div>
-    <div class="hero-origin" id="heroOrigin" style="display:none;"></div>
-    <div class="hero-status" id="heroStatus">Спряно</div>
-    <button id="heroPlayBtn" class="hero-play-btn">
-      <svg id="heroPlayIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-    </button>
+
+    <div class="station-list-col">
+      <div class="tabs">
+        <div class="tab active" data-tab="favorites">⭐ Любими</div>
+        <div class="tab" data-tab="all">📻 Подбрани</div>
+        <div class="tab" data-tab="world">🌍 Свят</div>
+      </div>
+
+      <input type="text" id="searchBox" placeholder="Търси станция..." style="display:none;">
+
+      <div id="worldChips" style="display:none;">
+        <div class="chip-row" id="countryChips"></div>
+        <div class="chip-row" id="genreChips"></div>
+      </div>
+
+      <div id="favoritesList"></div>
+      <div id="allList" style="display:none;"></div>
+      <div id="worldList" style="display:none;"></div>
+    </div>
   </div>
-
-  <div class="tabs">
-    <div class="tab active" data-tab="favorites">⭐ Любими</div>
-    <div class="tab" data-tab="all">📻 Подбрани</div>
-    <div class="tab" data-tab="world">🌍 Свят</div>
-  </div>
-
-  <input type="text" id="searchBox" placeholder="Търси станция..." style="display:none;">
-
-  <div id="worldChips" style="display:none;">
-    <div class="chip-row" id="countryChips"></div>
-    <div class="chip-row" id="genreChips"></div>
-  </div>
-
-  <div id="favoritesList"></div>
-  <div id="allList" style="display:none;"></div>
-  <div id="worldList" style="display:none;"></div>
 </main>
 
 <div id="nowPlaying">
@@ -458,6 +518,7 @@ const els = {
   heroStatus: document.getElementById('heroStatus'),
   heroPlayBtn: document.getElementById('heroPlayBtn'),
   heroPlayIcon: document.getElementById('heroPlayIcon'),
+  playerEmpty: document.getElementById('playerEmpty'),
   player: document.getElementById('player'),
 };
 
@@ -607,6 +668,7 @@ function stopPlayback() {
   currentStation = null;
   els.nowPlaying.classList.remove('visible');
   els.hero.style.display = 'none';
+  els.playerEmpty.style.display = 'block';
 }
 
 function togglePlayPause() {
@@ -637,10 +699,12 @@ function updateNowPlaying() {
   if (!currentStation) {
     els.nowPlaying.classList.remove('visible');
     els.hero.style.display = 'none';
+    els.playerEmpty.style.display = 'block';
     return;
   }
   els.nowPlaying.classList.add('visible');
   els.hero.style.display = 'flex';
+  els.playerEmpty.style.display = 'none';
   els.npName.textContent = currentStation.name;
   els.heroName.textContent = currentStation.name;
   setStatus('Свързване…');
