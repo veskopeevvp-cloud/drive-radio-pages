@@ -162,6 +162,81 @@
   }
   .player-empty .icon { font-size: 2.4em; margin-bottom: 10px; }
 
+  /* ---------- Free-tier hint + Premium upgrade modal ---------- */
+  .free-hint {
+    font-size: 0.82em;
+    color: var(--text-dim);
+    line-height: 1.6;
+    padding: 12px 14px;
+    margin: 4px 0 18px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--panel-2);
+  }
+  .free-hint strong { color: var(--text); }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 100;
+  }
+  .modal-card {
+    position: relative;
+    max-width: 400px;
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 32px 28px 26px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .modal-close {
+    position: absolute;
+    top: 14px; right: 14px;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: var(--panel-2);
+    color: var(--text-dim);
+    font-size: 1.2em;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .modal-close:hover { background: #262626; color: var(--text); }
+  .modal-icon { font-size: 2.2em; margin-bottom: 6px; }
+  .modal-card h3 { margin: 0 0 12px; font-size: 1.15em; }
+  .modal-tagline { color: var(--text-dim); font-size: 0.92em; line-height: 1.55; margin: 0 0 18px; }
+  .modal-features {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 22px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+  .modal-features li {
+    font-size: 0.9em;
+    padding-left: 26px;
+    position: relative;
+  }
+  .modal-features li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--orange);
+    font-weight: 700;
+  }
+  .modal-actions { display: flex; flex-direction: column; gap: 10px; }
+  .modal-actions .btn { text-decoration: none; }
+  .modal-note { color: var(--text-dim); font-size: 0.78em; line-height: 1.5; margin: 16px 0 0; }
+
   /* ---------- Desktop two-column layout ---------- */
   /* The player staying in view while only the station list scrolls is the
      whole point of this layout - a single position:fixed player would
@@ -468,6 +543,10 @@
       </div>
 
       <div id="favoritesList"></div>
+      <div id="freeFavoritesHint" class="free-hint" style="display:none;">
+        Безплатен план: любимите се пазят само в този браузър (до 10 станции).
+        <strong>Premium:</strong> неограничени любими + Cloud Sync на всички устройства.
+      </div>
       <div id="allList" style="display:none;"></div>
       <div id="worldList" style="display:none;"></div>
     </div>
@@ -487,6 +566,26 @@
 </div>
 
 <audio id="player" preload="none"></audio>
+
+<div id="premiumModal" class="modal-overlay" style="display:none;">
+  <div class="modal-card">
+    <button class="modal-close" id="premiumModalClose" aria-label="Затвори">&times;</button>
+    <div class="modal-icon">⭐</div>
+    <h3>Отключи неограничени любими и Cloud Sync</h3>
+    <p class="modal-tagline">Любимите ти станции те следват навсякъде — слушай от телефона и продължи веднага от всеки браузър или устройство.</p>
+    <ul class="modal-features">
+      <li>Неограничен брой любими станции</li>
+      <li>Cloud Sync между всички устройства</li>
+      <li>Автоматично резервно копие</li>
+      <li>Плавна синхронизация между уеб и приложението</li>
+    </ul>
+    <div class="modal-actions">
+      <a id="premiumUpgradeBtn" class="btn primary" href="https://play.google.com/store/apps/details?id=bg.driveradio.app" target="_blank" rel="noopener">Отвори в Google Play</a>
+      <button id="premiumLaterBtn" class="btn">По-късно</button>
+    </div>
+    <p class="modal-note">Premium се активира през приложението за Android — след покупка любимите ти автоматично ще започнат да се синхронизират и тук.</p>
+  </div>
+</div>
 
 <footer>
   Drive Radio &middot; <a href="privacy-policy.html">Политика за поверителност</a>
@@ -542,6 +641,10 @@ const els = {
   genreChips: document.getElementById('genreChips'),
   searchBox: document.getElementById('searchBox'),
   allCountryChips: document.getElementById('allCountryChips'),
+  freeFavoritesHint: document.getElementById('freeFavoritesHint'),
+  premiumModal: document.getElementById('premiumModal'),
+  premiumModalClose: document.getElementById('premiumModalClose'),
+  premiumLaterBtn: document.getElementById('premiumLaterBtn'),
   nowPlaying: document.getElementById('nowPlaying'),
   npLogo: document.getElementById('npLogo'),
   npLogoFallback: document.getElementById('npLogoFallback'),
@@ -622,22 +725,100 @@ onAuthStateChanged(auth, async (user) => {
 
   // Own user doc - only used to read premium status (client can read its
   // own doc per firestore.rules; the 'premium' field itself is only ever
-  // written server-side by the verifyPurchase Cloud Function).
+  // written server-side by the verifyPurchase Cloud Function). One-time
+  // read, not live - if someone upgrades in the app while this tab is
+  // already open, it won't flip to Premium here until the page reloads.
   const userDoc = await getDoc(doc(db, 'users', user.uid));
   const premiumData = userDoc.data()?.premium;
   const status = premiumData?.status;
   isPremium = status === 'active' || status === 'canceled' || status === 'grace_period';
+  updateFreeFavoritesHint();
 
-  // Same subcollection/doc the app's favorites_sync_service.dart reads and
-  // writes - live-listened so a change made in the app shows up here
-  // without a manual refresh, and vice versa.
-  unsubscribeFavorites = onSnapshot(doc(db, 'users', user.uid, 'sync', 'favorites'), (snap) => {
-    const raw = snap.data()?.stations || [];
-    favoriteStations = raw.map(resolveFavoriteEntry).filter(Boolean);
+  if (isPremium) {
+    // Folds in whatever this browser favorited while it was still free
+    // (or before ever syncing) so upgrading never loses local-only picks.
+    await mergeLocalFavoritesIntoCloud(user.uid);
+    // Same subcollection/doc the app's favorites_sync_service.dart reads
+    // and writes - live-listened so a change made in the app shows up
+    // here without a manual refresh, and vice versa.
+    unsubscribeFavorites = onSnapshot(doc(db, 'users', user.uid, 'sync', 'favorites'), (snap) => {
+      const raw = snap.data()?.stations || [];
+      favoriteStations = raw.map(resolveFavoriteEntry).filter(Boolean);
+      renderFavoritesList();
+      if (activeTab === 'all') renderAllList();
+    });
+  } else {
+    // Free tier: favorites never touch Firestore - purely local to this
+    // browser, per the agreed Free/Premium split (see project memory
+    // project_cloud_sync_favorites_plan.md - sync itself is the Premium
+    // perk, not just a raised cap).
+    favoriteStations = loadFavoritesLocal();
     renderFavoritesList();
     if (activeTab === 'all') renderAllList();
-  });
+  }
 });
+
+// Free users keep their favorites only on this device/browser via
+// localStorage - no Firestore read or write happens for them at all.
+const LOCAL_FAVORITES_KEY = 'driveradio_favorites_v1';
+
+function favoritesPayload() {
+  return favoriteStations.map(s => {
+    if (s.source === 'curated') return { id: s.id, source: 'curated' };
+    return {
+      id: s.id, source: 'radioBrowser', name: s.name, subtitle: s.subtitle,
+      url: s.url, logoUrl: s.logoUrl, country: s.country, category: s.category,
+    };
+  });
+}
+
+function saveFavoritesLocal() {
+  localStorage.setItem(LOCAL_FAVORITES_KEY, JSON.stringify(favoritesPayload()));
+}
+
+function loadFavoritesLocal() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LOCAL_FAVORITES_KEY) || '[]');
+    if (!Array.isArray(raw)) return [];
+    return raw.map(resolveFavoriteEntry).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+// Union of whatever this browser saved locally (as a free user, or before
+// ever signing in) with whatever's already in the cloud, by id - no
+// duplicates, nothing dropped from either side. Runs once per sign-in
+// where Premium is confirmed, then clears the local copy since Premium
+// mode reads from Firestore from here on.
+async function mergeLocalFavoritesIntoCloud(uid) {
+  const localRaw = localStorage.getItem(LOCAL_FAVORITES_KEY);
+  if (!localRaw) return;
+  let localPayload;
+  try { localPayload = JSON.parse(localRaw); } catch { localPayload = null; }
+  if (!Array.isArray(localPayload) || localPayload.length === 0) {
+    localStorage.removeItem(LOCAL_FAVORITES_KEY);
+    return;
+  }
+
+  const favDoc = doc(db, 'users', uid, 'sync', 'favorites');
+  const snap = await getDoc(favDoc);
+  const cloudPayload = snap.data()?.stations || [];
+  const merged = [...cloudPayload];
+  const seenIds = new Set(cloudPayload.map(s => s.id));
+  let changed = false;
+  for (const entry of localPayload) {
+    if (!seenIds.has(entry.id)) {
+      merged.push(entry);
+      seenIds.add(entry.id);
+      changed = true;
+    }
+  }
+  if (changed) {
+    await setDoc(favDoc, { stations: merged, updatedAt: serverTimestamp() });
+  }
+  localStorage.removeItem(LOCAL_FAVORITES_KEY);
+}
 
 function resolveFavoriteEntry(entry) {
   if (entry.source === 'curated') {
@@ -659,15 +840,12 @@ function resolveFavoriteEntry(entry) {
 
 async function pushFavorites() {
   if (!currentUser) return;
-  const payload = favoriteStations.map(s => {
-    if (s.source === 'curated') return { id: s.id, source: 'curated' };
-    return {
-      id: s.id, source: 'radioBrowser', name: s.name, subtitle: s.subtitle,
-      url: s.url, logoUrl: s.logoUrl, country: s.country, category: s.category,
-    };
-  });
+  if (!isPremium) {
+    saveFavoritesLocal();
+    return;
+  }
   await setDoc(doc(db, 'users', currentUser.uid, 'sync', 'favorites'), {
-    stations: payload,
+    stations: favoritesPayload(),
     updatedAt: serverTimestamp(),
   });
 }
@@ -676,10 +854,38 @@ function isFavorite(station) {
   return favoriteStations.some(s => s.id === station.id);
 }
 
+function updateFreeFavoritesHint() {
+  els.freeFavoritesHint.style.display =
+    (activeTab === 'favorites' && currentUser && !isPremium) ? 'block' : 'none';
+}
+
+// Shown only when a free user actually hits the 10-favorite cap, not on
+// every visit to the tab - and stays quiet for a few days after being
+// dismissed instead of nagging on the very next attempt.
+const PREMIUM_CTA_DISMISS_KEY = 'driveradio_premium_cta_dismissed_at';
+const PREMIUM_CTA_COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000;
+
+function maybeShowPremiumModal() {
+  const dismissedAt = Number(localStorage.getItem(PREMIUM_CTA_DISMISS_KEY) || 0);
+  if (Date.now() - dismissedAt < PREMIUM_CTA_COOLDOWN_MS) return;
+  els.premiumModal.style.display = 'flex';
+}
+
+function hidePremiumModal() {
+  els.premiumModal.style.display = 'none';
+  localStorage.setItem(PREMIUM_CTA_DISMISS_KEY, String(Date.now()));
+}
+
+els.premiumModalClose.addEventListener('click', hidePremiumModal);
+els.premiumLaterBtn.addEventListener('click', hidePremiumModal);
+els.premiumModal.addEventListener('click', (e) => {
+  if (e.target === els.premiumModal) hidePremiumModal();
+});
+
 function toggleFavorite(station) {
   const adding = !isFavorite(station);
   if (adding && !isPremium && favoriteStations.length >= FREE_FAVORITES_CAP) {
-    alert('Достигна лимита от 10 любими станции. С Premium можеш да запазваш неограничен брой и да ги синхронизираш между устройствата си.');
+    maybeShowPremiumModal();
     return;
   }
   if (adding) {
@@ -1071,6 +1277,7 @@ document.querySelectorAll('.tab').forEach(tabEl => {
     els.worldChips.style.display = activeTab === 'world' ? '' : 'none';
     els.allCountryChips.style.display = activeTab === 'all' ? 'flex' : 'none';
     els.searchBox.style.display = activeTab === 'favorites' ? 'none' : '';
+    updateFreeFavoritesHint();
 
     if (activeTab === 'all') {
       els.searchBox.placeholder = 'Търси станция...';
