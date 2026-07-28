@@ -936,12 +936,59 @@ function setStatus(text) {
   els.heroStatus.textContent = text;
 }
 
-// Swaps the connection-status line for a "🎵 На живо" tag once audio is
-// actually playing - real song title/artist would need a server-side ICY
-// metadata proxy (stream servers don't send CORS headers, checked earlier).
+// Swaps the connection-status line for a "🎵 На живо" tag (Premium: real
+// song title, via the getNowPlaying proxy below) once audio is playing.
 function setPlayingUI(playing) {
   els.heroStatus.style.display = playing ? 'none' : '';
   els.heroSong.style.display = playing ? 'block' : 'none';
+
+  if (playing && isPremium) {
+    startNowPlayingPolling();
+  } else {
+    stopNowPlayingPolling();
+  }
+}
+
+// Real song title/artist is Premium in the app itself (see main.dart -
+// scrollingText(currentSong) is gated behind globalIsPremium there too),
+// so it stays Premium here for the same reason - free users keep the
+// generic "🎵 На живо" placeholder always, never real metadata.
+const NOW_PLAYING_ENDPOINT = 'https://getnowplaying-q37o7jqdeq-uc.a.run.app';
+const NOW_PLAYING_POLL_MS = 15000;
+let nowPlayingTimer = null;
+
+async function fetchAndShowNowPlayingSong() {
+  if (!currentStation) return;
+  const stationUrl = currentStation.url;
+  try {
+    const res = await fetch(
+        NOW_PLAYING_ENDPOINT + '?url=' + encodeURIComponent(stationUrl),
+        {signal: AbortSignal.timeout(12000)},
+    );
+    const data = await res.json();
+    // currentStation may have changed while this was in flight - a stale
+    // response landing after a station switch must not overwrite the new
+    // station's placeholder with the old one's song.
+    if (!currentStation || currentStation.url !== stationUrl) return;
+    els.heroSong.textContent = data.song ? ('🎵 ' + data.song) : '🎵 На живо';
+  } catch {
+    if (!currentStation || currentStation.url !== stationUrl) return;
+    els.heroSong.textContent = '🎵 На живо';
+  }
+}
+
+function startNowPlayingPolling() {
+  if (nowPlayingTimer) return;
+  fetchAndShowNowPlayingSong();
+  nowPlayingTimer = setInterval(fetchAndShowNowPlayingSong, NOW_PLAYING_POLL_MS);
+}
+
+function stopNowPlayingPolling() {
+  if (nowPlayingTimer) {
+    clearInterval(nowPlayingTimer);
+    nowPlayingTimer = null;
+  }
+  els.heroSong.textContent = '🎵 На живо';
 }
 
 function setPlayIcon(playing) {
