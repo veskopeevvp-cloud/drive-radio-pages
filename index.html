@@ -140,6 +140,12 @@
   .hero-origin { color: var(--text-dim); font-size: 0.85em; margin-bottom: 6px; }
   .hero-status { color: var(--text-dim); font-size: 0.9em; margin-bottom: 22px; }
   .hero-song { display: none; color: var(--orange); font-weight: 600; font-size: 0.95em; margin-bottom: 22px; }
+  .hero-transport {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+  }
   .hero-play-btn {
     width: 84px; height: 84px;
     border-radius: 50%;
@@ -153,6 +159,23 @@
   .hero-play-btn:hover { transform: scale(1.04); }
   .hero-play-btn:active { transform: scale(0.97); }
   .hero-play-btn svg { width: 34px; height: 34px; fill: #000; }
+
+  /* Smaller and quieter than the play button on purpose - it stays the
+     one dominant action, these are secondary. */
+  .hero-transport-btn {
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.12s, background 0.12s;
+  }
+  .hero-transport-btn:hover { background: rgba(255,255,255,0.08); transform: scale(1.05); }
+  .hero-transport-btn:active { transform: scale(0.95); }
+  .hero-transport-btn svg { width: 26px; height: 26px; fill: #e8e8e8; }
+  .hero-transport-btn:disabled { opacity: 0.3; cursor: default; }
+  .hero-transport-btn:disabled:hover { background: transparent; transform: none; }
 
   .player-empty {
     text-align: center;
@@ -512,13 +535,22 @@
         <div class="hero-name" id="heroName">—</div>
         <div class="hero-origin" id="heroOrigin" style="display:none;"></div>
         <div class="hero-status" id="heroStatus">Спряно</div>
-        <!-- Placeholder only - real song title/artist would need a
-             server-side proxy (browsers can't read ICY metadata cross-origin,
-             see the CORS check done earlier this session), not built yet. -->
+        <!-- "На живо" for everyone; Premium swaps this for the real song
+             title via the getNowPlaying proxy (see setPlayingUI/
+             fetchAndShowNowPlayingSong below) - free stays generic, same
+             split as scrollingText(currentSong) in the app's main.dart. -->
         <div class="hero-song" id="heroSong">🎵 На живо</div>
-        <button id="heroPlayBtn" class="hero-play-btn">
-          <svg id="heroPlayIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-        </button>
+        <div class="hero-transport">
+          <button id="heroPrevBtn" class="hero-transport-btn" title="Предишна" aria-label="Предишна станция">
+            <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+          </button>
+          <button id="heroPlayBtn" class="hero-play-btn">
+            <svg id="heroPlayIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <button id="heroNextBtn" class="hero-transport-btn" title="Следваща" aria-label="Следваща станция">
+            <svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 6l8.5 6L6 18z"/></svg>
+          </button>
+        </div>
       </div>
       <div id="playerEmpty" class="player-empty">
         <div class="icon">🎵</div>
@@ -661,6 +693,8 @@ const els = {
   heroSong: document.getElementById('heroSong'),
   heroPlayBtn: document.getElementById('heroPlayBtn'),
   heroPlayIcon: document.getElementById('heroPlayIcon'),
+  heroPrevBtn: document.getElementById('heroPrevBtn'),
+  heroNextBtn: document.getElementById('heroNextBtn'),
   playerEmpty: document.getElementById('playerEmpty'),
   player: document.getElementById('player'),
 };
@@ -924,8 +958,29 @@ function togglePlayPause() {
   else { els.player.pause(); }
 }
 
+// Mirrors the app's _stepStation(): cycles within favorites if the
+// current station is favorited, within the loaded World results if it's
+// a radioBrowser station that came from there, otherwise within the full
+// curated catalog - whichever list actually contains the current station.
+function getPlaybackQueue() {
+  if (!currentStation) return [];
+  if (favoriteStations.some(s => s.id === currentStation.id)) return favoriteStations;
+  if (currentStation.source === 'radioBrowser') return worldResults;
+  return curatedStations;
+}
+
+function stepStation(delta) {
+  const queue = getPlaybackQueue();
+  if (queue.length === 0) return;
+  const currentPos = queue.findIndex(s => s.id === currentStation.id);
+  const nextPos = currentPos === -1 ? 0 : (currentPos + delta + queue.length) % queue.length;
+  playStation(queue[nextPos]);
+}
+
 els.playPauseBtn.addEventListener('click', togglePlayPause);
 els.heroPlayBtn.addEventListener('click', togglePlayPause);
+els.heroPrevBtn.addEventListener('click', () => stepStation(-1));
+els.heroNextBtn.addEventListener('click', () => stepStation(1));
 els.player.addEventListener('playing', () => { els.npStatus.textContent = 'На живо'; setPlayingUI(true); setPlayIcon(true); renderFavoritesList(); renderAllList(); renderWorldList(); });
 els.player.addEventListener('pause', () => { setPlayingUI(false); setStatus('На пауза'); setPlayIcon(false); renderFavoritesList(); renderAllList(); renderWorldList(); });
 els.player.addEventListener('waiting', () => { setPlayingUI(false); setStatus('Свързване…'); });
@@ -957,6 +1012,23 @@ const NOW_PLAYING_ENDPOINT = 'https://getnowplaying-q37o7jqdeq-uc.a.run.app';
 const NOW_PLAYING_POLL_MS = 15000;
 let nowPlayingTimer = null;
 
+// Puts the station's own logo back in the hero art - the fallback whenever
+// there's no real song art (not playing, no metadata this poll, lookup
+// found nothing) or a free/lookup failure, so the frame is never left
+// pointing at a stale song's cover from a previous station.
+function resetHeroArtToStationLogo() {
+  if (!currentStation) return;
+  const logo = logoSrcFor(currentStation);
+  if (logo) {
+    els.heroLogo.src = logo;
+    els.heroLogo.style.display = '';
+    els.heroLogoFallback.style.display = 'none';
+  } else {
+    els.heroLogo.style.display = 'none';
+    els.heroLogoFallback.style.display = 'flex';
+  }
+}
+
 async function fetchAndShowNowPlayingSong() {
   if (!currentStation) return;
   const stationUrl = currentStation.url;
@@ -968,12 +1040,20 @@ async function fetchAndShowNowPlayingSong() {
     const data = await res.json();
     // currentStation may have changed while this was in flight - a stale
     // response landing after a station switch must not overwrite the new
-    // station's placeholder with the old one's song.
+    // station's placeholder with the old one's song/art.
     if (!currentStation || currentStation.url !== stationUrl) return;
     els.heroSong.textContent = data.song ? ('🎵 ' + data.song) : '🎵 На живо';
+    if (data.artUrl) {
+      els.heroLogo.src = data.artUrl;
+      els.heroLogo.style.display = '';
+      els.heroLogoFallback.style.display = 'none';
+    } else {
+      resetHeroArtToStationLogo();
+    }
   } catch {
     if (!currentStation || currentStation.url !== stationUrl) return;
     els.heroSong.textContent = '🎵 На живо';
+    resetHeroArtToStationLogo();
   }
 }
 
@@ -989,6 +1069,7 @@ function stopNowPlayingPolling() {
     nowPlayingTimer = null;
   }
   els.heroSong.textContent = '🎵 На живо';
+  resetHeroArtToStationLogo();
 }
 
 function setPlayIcon(playing) {
