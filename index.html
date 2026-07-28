@@ -832,7 +832,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
-  collection, query, orderBy, limit, getDocs
+  collection, query, orderBy, limit, getDocs, addDoc, getCountFromServer, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -1134,7 +1134,38 @@ els.premiumModal.addEventListener('click', (e) => {
 // there's no Dart code to share on the web side, so the query is
 // duplicated here in JS against the identical Firestore path.
 const HISTORY_FETCH_LIMIT = 200;
+const HISTORY_MAX_ENTRIES = 200;
 let historyEntries = [];   // raw docs from the last fetch, newest first
+
+// Splits an ICY "Artist - Title" string the same way the Cloud Function's
+// fetchAlbumArt() does server-side, so a web listening session records
+// entries shaped exactly like the app's (station/artist/title, not a raw
+// combined string).
+function splitArtistTitle(song) {
+  const parts = song.split(/ [-–—] /);
+  if (parts.length < 2) return null;
+  return {artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim()};
+}
+
+// Mirrors HistorySyncService.pushEntry() in the app: add the entry, then
+// only pay for the extra count()+prune round trip on the rare write that
+// actually crosses the cap.
+async function pushHistoryEntry(station, artist, title, albumArtUrl) {
+  const col = collection(db, 'users', currentUser.uid, 'history');
+  await addDoc(col, {
+    station, artist, title,
+    albumArtUrl: albumArtUrl || null,
+    timestamp: serverTimestamp(),
+  });
+  const countSnap = await getCountFromServer(query(col));
+  const total = countSnap.data().count;
+  if (total <= HISTORY_MAX_ENTRIES) return;
+  const excess = total - HISTORY_MAX_ENTRIES;
+  const oldestSnap = await getDocs(query(col, orderBy('timestamp'), limit(excess)));
+  const batch = writeBatch(db);
+  oldestSnap.forEach(d => batch.delete(d.ref));
+  await batch.commit();
+}
 
 // No synced "preferred platform" setting exists yet - the app's choice
 // lives in local SharedPreferences only, not Firestore - so the web page
@@ -1404,6 +1435,11 @@ function setPlayingUI(playing) {
 const NOW_PLAYING_ENDPOINT = 'https://getnowplaying-q37o7jqdeq-uc.a.run.app';
 const NOW_PLAYING_POLL_MS = 15000;
 let nowPlayingTimer = null;
+// station url + raw song string of the last entry recorded to history -
+// resets on every station switch/stop so replaying a station later still
+// records fresh, and keeps a steady poll of the *same* song from writing
+// a duplicate entry every 15s.
+let lastRecordedHistoryKey = null;
 
 // Puts the station's own logo back in the hero art - the fallback whenever
 // there's no real song art (not playing, no metadata this poll, lookup
@@ -1443,6 +1479,22 @@ async function fetchAndShowNowPlayingSong() {
     } else {
       resetHeroArtToStationLogo();
     }
+
+    // Records this listening session's own plays to history, same as the
+    // app does natively - this poll is the only place a web session ever
+    // learns the current song, so it's also the only place that can write
+    // a history entry for time spent listening on the web.
+    if (data.song && currentUser) {
+      const key = stationUrl + '|' + data.song;
+      if (key !== lastRecordedHistoryKey) {
+        lastRecordedHistoryKey = key;
+        const parts = splitArtistTitle(data.song);
+        if (parts) {
+          pushHistoryEntry(currentStation.name, parts.artist, parts.title, data.artUrl)
+              .catch(e => console.error('HISTORY WEB PUSH ERROR', e));
+        }
+      }
+    }
   } catch {
     if (!currentStation || currentStation.url !== stationUrl) return;
     els.heroSong.textContent = '🎵 На живо';
@@ -1461,6 +1513,7 @@ function stopNowPlayingPolling() {
     clearInterval(nowPlayingTimer);
     nowPlayingTimer = null;
   }
+  lastRecordedHistoryKey = null;
   els.heroSong.textContent = '🎵 На живо';
   resetHeroArtToStationLogo();
 }
