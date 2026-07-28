@@ -177,6 +177,31 @@
   .hero-transport-btn:disabled { opacity: 0.3; cursor: default; }
   .hero-transport-btn:disabled:hover { background: transparent; transform: none; }
 
+  /* Icon sits to the left of the station name, mirroring the app's own
+     [history icon][station name][favorite star] row (buildHistoryIcon() in
+     main.dart) - the history feature is keyed to the station, same place
+     it lives on mobile, not next to the separate Premium song-title line. */
+  .hero-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .hero-name-row .hero-name { margin-bottom: 0; }
+  .history-icon-btn {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.12s;
+  }
+  .history-icon-btn:hover { background: rgba(255,140,26,0.12); }
+  .history-icon-btn svg { width: 19px; height: 19px; fill: var(--orange); }
+
   .player-empty {
     text-align: center;
     color: var(--text-dim);
@@ -259,6 +284,153 @@
   .modal-actions { display: flex; flex-direction: column; gap: 10px; }
   .modal-actions .btn { text-decoration: none; }
   .modal-note { color: var(--text-dim); font-size: 0.78em; line-height: 1.5; margin: 16px 0 0; }
+
+  /* ---------- History panel ----------
+     A right-side slide-in rather than a new tab/route, so the radio stays
+     visible and playing while browsing - the desktop-screen advantage the
+     mobile app doesn't have room for. */
+  .history-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 90;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .history-overlay.open { opacity: 1; pointer-events: auto; }
+  .history-panel {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: 420px;
+    max-width: 100vw;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    z-index: 91;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    box-shadow: -20px 0 60px rgba(0,0,0,0.4);
+  }
+  .history-panel.open { transform: translateX(0); }
+  .history-panel-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 20px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .history-panel-header h3 { margin: 0; flex: 1; font-size: 1.1em; }
+  .history-panel-close {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: var(--panel-2);
+    color: var(--text-dim);
+    font-size: 1.2em;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .history-panel-close:hover { background: #262626; color: var(--text); }
+  .history-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px 30px;
+    scrollbar-width: thin;
+    scrollbar-color: #3a3a3a transparent;
+  }
+  .history-panel-body::-webkit-scrollbar { width: 8px; }
+  .history-panel-body::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 8px; }
+
+  .history-toolbar { display: flex; gap: 10px; margin-bottom: 16px; }
+  #historySearchBox {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 0.9em;
+  }
+  #historySearchBox:focus { outline: none; border-color: var(--orange); }
+  #historyPlatformSelect {
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 0.85em;
+    max-width: 152px;
+  }
+
+  .history-day-label {
+    color: var(--text-dim);
+    font-size: 0.78em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 18px 0 8px;
+  }
+  .history-day-label:first-child { margin-top: 0; }
+
+  .history-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+  }
+  .history-card .thumb {
+    width: 48px; height: 48px;
+    border-radius: 9px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: #262626;
+  }
+  .history-card .thumb-fallback {
+    width: 48px; height: 48px;
+    border-radius: 9px;
+    background: #262626;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 1.2em;
+    color: var(--text-dim);
+  }
+  .history-card .info { flex: 1; min-width: 0; }
+  .history-card .song {
+    font-weight: 600; font-size: 0.92em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .history-card .meta {
+    color: var(--text-dim); font-size: 0.78em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-top: 2px;
+  }
+  .history-open-btn {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--orange);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .history-open-btn:hover { background: #262626; }
+  .history-open-btn svg { width: 16px; height: 16px; fill: currentColor; }
+
+  .history-lock { text-align: center; padding: 40px 10px; }
+  .history-lock .modal-icon { font-size: 2.2em; margin-bottom: 10px; }
+  .history-lock h4 { margin: 0 0 10px; font-size: 1.05em; }
+  .history-lock p { color: var(--text-dim); font-size: 0.88em; line-height: 1.55; margin: 0 0 22px; }
+
+  @media (max-width: 520px) {
+    .history-panel { width: 100vw; }
+  }
 
   /* ---------- Desktop two-column layout ---------- */
   /* The player staying in view while only the station list scrolls is the
@@ -532,7 +704,12 @@
           <img id="heroLogo" src="" alt="" style="display:none;">
           <div class="logo-fallback" id="heroLogoFallback" style="display:none;">📻</div>
         </div>
-        <div class="hero-name" id="heroName">—</div>
+        <div class="hero-name-row">
+          <button id="historyIconBtn" class="history-icon-btn" title="История" aria-label="История на песните">
+            <svg viewBox="0 0 24 24"><path d="M13,3A9,9,0,0,0,4,12H1L4.89,15.89L4.96,16.03L9,12H6A7,7,0,1,1,8.1,17.75L6.74,19.19A9,9,0,1,0,13,3M12,8V13L16.28,15.54L17,14.33L13.5,12.25V8H12Z"/></svg>
+          </button>
+          <div class="hero-name" id="heroName">—</div>
+        </div>
         <div class="hero-origin" id="heroOrigin" style="display:none;"></div>
         <div class="hero-status" id="heroStatus">Спряно</div>
         <!-- "На живо" for everyone; Premium swaps this for the real song
@@ -619,6 +796,30 @@
   </div>
 </div>
 
+<div id="historyOverlay" class="history-overlay"></div>
+<div id="historyPanel" class="history-panel">
+  <div class="history-panel-header">
+    <h3>История</h3>
+    <button class="history-panel-close" id="historyPanelClose" aria-label="Затвори">&times;</button>
+  </div>
+  <div class="history-panel-body">
+    <div id="historyLockView" class="history-lock" style="display:none;">
+      <div class="modal-icon">⭐</div>
+      <h4>Историята е Premium функция</h4>
+      <p>Виж последно изсвирените песни от всички станции — с обложки и час на излъчване, синхронизирано между телефона и компютъра.</p>
+      <a class="btn primary" href="https://play.google.com/store/apps/details?id=bg.driveradio.app" target="_blank" rel="noopener">Отвори в Google Play</a>
+    </div>
+    <div id="historyPremiumView" style="display:none;">
+      <div class="history-toolbar">
+        <input type="text" id="historySearchBox" placeholder="Търси песен, изпълнител или станция...">
+        <select id="historyPlatformSelect"></select>
+      </div>
+      <div id="historyList"></div>
+      <div id="historyEmptyState" class="empty-state" style="display:none;">Все още няма история — пусни радио и се върни по-късно.</div>
+    </div>
+  </div>
+</div>
+
 <footer>
   Drive Radio &middot; <a href="privacy-policy.html">Политика за поверителност</a>
 </footer>
@@ -630,7 +831,8 @@ import {
   signInWithEmailAndPassword, signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-  getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp
+  getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
+  collection, query, orderBy, limit, getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -697,6 +899,16 @@ const els = {
   heroNextBtn: document.getElementById('heroNextBtn'),
   playerEmpty: document.getElementById('playerEmpty'),
   player: document.getElementById('player'),
+  historyIconBtn: document.getElementById('historyIconBtn'),
+  historyOverlay: document.getElementById('historyOverlay'),
+  historyPanel: document.getElementById('historyPanel'),
+  historyPanelClose: document.getElementById('historyPanelClose'),
+  historyLockView: document.getElementById('historyLockView'),
+  historyPremiumView: document.getElementById('historyPremiumView'),
+  historySearchBox: document.getElementById('historySearchBox'),
+  historyPlatformSelect: document.getElementById('historyPlatformSelect'),
+  historyList: document.getElementById('historyList'),
+  historyEmptyState: document.getElementById('historyEmptyState'),
 };
 
 // ---------- Station catalog ----------
@@ -915,6 +1127,187 @@ els.premiumLaterBtn.addEventListener('click', hidePremiumModal);
 els.premiumModal.addEventListener('click', (e) => {
   if (e.target === els.premiumModal) hidePremiumModal();
 });
+
+// ---------- History panel ----------
+// Reads users/{uid}/history the same way HistorySyncService.fetchCloud()
+// does in the app (same collection, same ordering, same 200-entry cap) -
+// there's no Dart code to share on the web side, so the query is
+// duplicated here in JS against the identical Firestore path.
+const HISTORY_FETCH_LIMIT = 200;
+let historyEntries = [];   // raw docs from the last fetch, newest first
+
+// No synced "preferred platform" setting exists yet - the app's choice
+// lives in local SharedPreferences only, not Firestore - so the web page
+// keeps its own independent preference, remembered per-browser.
+const MUSIC_PLATFORM_KEY = 'driveradio_music_platform_v1';
+const MUSIC_PLATFORMS = {
+  spotify: { label: 'Spotify', searchUrl: q => `https://open.spotify.com/search/${encodeURIComponent(q)}` },
+  youtubeMusic: { label: 'YouTube Music', searchUrl: q => `https://music.youtube.com/search?q=${encodeURIComponent(q)}` },
+  youtube: { label: 'YouTube', searchUrl: q => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}` },
+  appleMusic: { label: 'Apple Music', searchUrl: q => `https://music.apple.com/search?term=${encodeURIComponent(q)}` },
+  deezer: { label: 'Deezer', searchUrl: q => `https://www.deezer.com/search/${encodeURIComponent(q)}` },
+  tidal: { label: 'Tidal', searchUrl: q => `https://listen.tidal.com/search?q=${encodeURIComponent(q)}` },
+};
+
+function loadMusicPlatform() {
+  const saved = localStorage.getItem(MUSIC_PLATFORM_KEY);
+  return MUSIC_PLATFORMS[saved] ? saved : 'spotify';
+}
+
+for (const [key, info] of Object.entries(MUSIC_PLATFORMS)) {
+  const opt = document.createElement('option');
+  opt.value = key;
+  opt.textContent = info.label;
+  els.historyPlatformSelect.appendChild(opt);
+}
+els.historyPlatformSelect.value = loadMusicPlatform();
+els.historyPlatformSelect.addEventListener('change', () => {
+  localStorage.setItem(MUSIC_PLATFORM_KEY, els.historyPlatformSelect.value);
+});
+
+function dayLabel(date) {
+  const now = new Date();
+  const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diffDays = Math.round((startOfDay(now) - startOfDay(date)) / 86400000);
+  if (diffDays === 0) return 'Днес';
+  if (diffDays === 1) return 'Вчера';
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}`;
+}
+
+function timeLabel(date) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+// Matches a history entry's station name against the curated catalog to
+// reuse its logo when the entry has no album art of its own - same
+// fallback chain as the app's _stationLogoThumbnail().
+function stationLogoForName(name) {
+  const match = curatedStations.find(s => s.name.toLowerCase() === (name || '').toLowerCase());
+  return match ? logoSrcFor(match) : null;
+}
+
+function historyCard(entry) {
+  const card = document.createElement('div');
+  card.className = 'history-card';
+
+  const fallbackLogo = stationLogoForName(entry.station);
+  const thumbSrc = entry.albumArtUrl || fallbackLogo;
+  if (thumbSrc) {
+    const img = document.createElement('img');
+    img.className = 'thumb';
+    img.src = thumbSrc;
+    img.alt = '';
+    img.onerror = () => {
+      img.replaceWith(Object.assign(document.createElement('div'), { className: 'thumb-fallback', textContent: '🎵' }));
+    };
+    card.appendChild(img);
+  } else {
+    const fb = document.createElement('div');
+    fb.className = 'thumb-fallback';
+    fb.textContent = '🎵';
+    card.appendChild(fb);
+  }
+
+  const info = document.createElement('div');
+  info.className = 'info';
+  const song = document.createElement('div');
+  song.className = 'song';
+  song.textContent = `${entry.artist} - ${entry.title}`;
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  meta.textContent = `${entry.station} · ${timeLabel(entry.timestamp)}`;
+  info.appendChild(song);
+  info.appendChild(meta);
+  card.appendChild(info);
+
+  const openBtn = document.createElement('button');
+  openBtn.className = 'history-open-btn';
+  openBtn.title = 'Отвори';
+  openBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3z"/><path d="M19 19H5V5h7V3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2z"/></svg>';
+  openBtn.addEventListener('click', () => {
+    const platform = MUSIC_PLATFORMS[els.historyPlatformSelect.value] || MUSIC_PLATFORMS.spotify;
+    window.open(platform.searchUrl(`${entry.artist} - ${entry.title}`), '_blank', 'noopener');
+  });
+  card.appendChild(openBtn);
+
+  return card;
+}
+
+function renderHistoryList() {
+  const q = els.historySearchBox.value.trim().toLowerCase();
+  const filtered = q
+    ? historyEntries.filter(e =>
+        e.artist.toLowerCase().includes(q) ||
+        e.title.toLowerCase().includes(q) ||
+        e.station.toLowerCase().includes(q))
+    : historyEntries;
+
+  els.historyList.innerHTML = '';
+  els.historyEmptyState.style.display = filtered.length === 0 ? 'block' : 'none';
+
+  let lastLabel = null;
+  for (const entry of filtered) {
+    const label = dayLabel(entry.timestamp);
+    if (label !== lastLabel) {
+      const labelEl = document.createElement('div');
+      labelEl.className = 'history-day-label';
+      labelEl.textContent = label;
+      els.historyList.appendChild(labelEl);
+      lastLabel = label;
+    }
+    els.historyList.appendChild(historyCard(entry));
+  }
+}
+
+async function fetchAndRenderHistory() {
+  if (!currentUser) return;
+  els.historyList.innerHTML = '';
+  els.historyEmptyState.style.display = 'none';
+  const q = query(
+    collection(db, 'users', currentUser.uid, 'history'),
+    orderBy('timestamp', 'desc'),
+    limit(HISTORY_FETCH_LIMIT),
+  );
+  const snap = await getDocs(q);
+  historyEntries = snap.docs.map(d => {
+    const data = d.data();
+    return {
+      station: data.station,
+      artist: data.artist,
+      title: data.title,
+      albumArtUrl: data.albumArtUrl || null,
+      timestamp: data.timestamp.toDate(),
+    };
+  });
+  renderHistoryList();
+}
+
+function openHistoryPanel() {
+  if (!currentUser) return;
+  els.historyOverlay.classList.add('open');
+  els.historyPanel.classList.add('open');
+
+  if (!isPremium) {
+    els.historyLockView.style.display = 'block';
+    els.historyPremiumView.style.display = 'none';
+    return;
+  }
+  els.historyLockView.style.display = 'none';
+  els.historyPremiumView.style.display = 'block';
+  fetchAndRenderHistory();
+}
+
+function closeHistoryPanel() {
+  els.historyOverlay.classList.remove('open');
+  els.historyPanel.classList.remove('open');
+}
+
+els.historyIconBtn.addEventListener('click', openHistoryPanel);
+els.historyPanelClose.addEventListener('click', closeHistoryPanel);
+els.historyOverlay.addEventListener('click', closeHistoryPanel);
+els.historySearchBox.addEventListener('input', renderHistoryList);
 
 function toggleFavorite(station) {
   const adding = !isFavorite(station);
