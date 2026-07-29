@@ -63,7 +63,10 @@
   main {
     max-width: 1180px;
     margin: 0 auto;
-    padding: 42px 20px 140px;
+    padding: 24px 20px;
+    height: calc(100vh - 77px);
+    box-sizing: border-box;
+    overflow: hidden;
   }
 
   /* ---------- Login screen ---------- */
@@ -442,23 +445,24 @@
     display: grid;
     grid-template-columns: minmax(280px, 380px) 1fr;
     gap: 32px;
-    align-items: start;
+    height: 100%;
+    align-items: stretch;
   }
   .player-column {
-    position: sticky;
-    top: 84px;
+    min-width: 0;
     display: flex;
     align-items: center;
-    min-height: calc(100vh - 84px - 42px);
+    justify-content: center;
   }
   .player-column > * { width: 100%; }
   .station-list-col {
     min-width: 0;
-    max-height: calc(100vh - 84px - 42px);
+    min-height: 0;
+    height: 100%;
     overflow-y: auto;
     overscroll-behavior: contain;
     padding-right: 28px;
-    padding-bottom: 40px;
+    padding-bottom: 24px;
     /* Firefox */
     scrollbar-width: thin;
     scrollbar-color: #3a3a3a transparent;
@@ -485,24 +489,27 @@
   .station-list-col #allCountryChips { top: 130px; padding-top: 2px; }
   .station-list-col #worldChips { top: 130px; padding-top: 2px; }
 
+  /* Below this width there's no room for a side-by-side layout, so the
+     player stacks above the list instead of beside it - but it keeps its
+     own fixed spot (flex-shrink: 0) rather than scrolling away, and the
+     list still gets its own scroll area for the remaining height. This is
+     the only player on any screen size now - see the removed #nowPlaying
+     bottom bar in git history if that's ever needed again. */
   @media (max-width: 860px) {
-    .app-content { display: block; }
+    main { padding: 16px; }
+    .app-content {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
     .player-column {
-      position: static;
-      min-height: 0;
-      display: none;
+      flex-shrink: 0;
     }
     .station-list-col {
-      max-height: none;
-      overflow-y: visible;
+      flex: 1;
+      min-height: 0;
+      height: auto;
       padding-right: 0;
-      padding-bottom: 140px;
-    }
-    .station-list-col .tabs,
-    .station-list-col #searchBox,
-    .station-list-col #allCountryChips,
-    .station-list-col #worldChips {
-      position: static;
     }
   }
 
@@ -632,42 +639,14 @@
   .eq span:nth-child(3) { height: 65%; animation-delay: 0.4s; }
   @keyframes eqBounce { 0%,100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }
 
-  /* ---------- Now playing bar ---------- */
-  #nowPlaying {
-    position: fixed;
-    left: 0; right: 0; bottom: 0;
-    background: #0d0d0d;
-    border-top: 1px solid var(--border);
-    padding: 12px 20px;
-    display: none;
-    align-items: center;
-    gap: 14px;
-    z-index: 30;
-  }
-  #nowPlaying.visible { display: flex; }
-  #nowPlaying img, #nowPlaying .logo-fallback {
-    width: 44px; height: 44px; border-radius: 8px; object-fit: contain; flex-shrink: 0;
-  }
-  #nowPlaying .logo-fallback { background: var(--panel-2); display: flex; align-items: center; justify-content: center; color: var(--text-dim); }
-  #nowPlaying .npInfo { flex: 1; min-width: 0; }
-  #nowPlaying .npInfo .name { font-weight: 700; font-size: 0.95em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #nowPlaying .npInfo .status { color: var(--text-dim); font-size: 0.8em; }
-  #playPauseBtn {
-    width: 44px; height: 44px;
-    border-radius: 50%;
-    background: var(--orange);
-    border: none;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-  #playPauseBtn svg { width: 18px; height: 18px; fill: #000; }
-
+  /* footer now lives inside .station-list-col so it scrolls with the list
+     content - main itself no longer scrolls at all (see main{overflow:
+     hidden} above), so it has to be reachable some other way. */
   footer {
     text-align: center;
     color: var(--text-dim);
     font-size: 0.8em;
-    padding: 30px 20px 160px;
+    padding: 24px 0 8px;
   }
 </style>
 </head>
@@ -758,21 +737,13 @@
       </div>
       <div id="allList" style="display:none;"></div>
       <div id="worldList" style="display:none;"></div>
+
+      <footer>
+        Drive Radio &middot; <a href="privacy-policy.html">Политика за поверителност</a>
+      </footer>
     </div>
   </div>
 </main>
-
-<div id="nowPlaying">
-  <img id="npLogo" src="" alt="" style="display:none;">
-  <div class="logo-fallback" id="npLogoFallback" style="display:none;">📻</div>
-  <div class="npInfo">
-    <div class="name" id="npName">—</div>
-    <div class="status" id="npStatus">Спряно</div>
-  </div>
-  <button id="playPauseBtn">
-    <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-  </button>
-</div>
 
 <audio id="player" preload="none"></audio>
 
@@ -819,10 +790,6 @@
     </div>
   </div>
 </div>
-
-<footer>
-  Drive Radio &middot; <a href="privacy-policy.html">Политика за поверителност</a>
-</footer>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -879,13 +846,6 @@ const els = {
   premiumModal: document.getElementById('premiumModal'),
   premiumModalClose: document.getElementById('premiumModalClose'),
   premiumLaterBtn: document.getElementById('premiumLaterBtn'),
-  nowPlaying: document.getElementById('nowPlaying'),
-  npLogo: document.getElementById('npLogo'),
-  npLogoFallback: document.getElementById('npLogoFallback'),
-  npName: document.getElementById('npName'),
-  npStatus: document.getElementById('npStatus'),
-  playPauseBtn: document.getElementById('playPauseBtn'),
-  playIcon: document.getElementById('playIcon'),
   hero: document.getElementById('hero'),
   heroLogo: document.getElementById('heroLogo'),
   heroLogoFallback: document.getElementById('heroLogoFallback'),
@@ -1414,7 +1374,6 @@ function stopPlayback() {
   els.player.pause();
   els.player.removeAttribute('src');
   currentStation = null;
-  els.nowPlaying.classList.remove('visible');
   els.hero.style.display = 'none';
   els.playerEmpty.style.display = 'block';
 }
@@ -1444,17 +1403,15 @@ function stepStation(delta) {
   playStation(queue[nextPos]);
 }
 
-els.playPauseBtn.addEventListener('click', togglePlayPause);
 els.heroPlayBtn.addEventListener('click', togglePlayPause);
 els.heroPrevBtn.addEventListener('click', () => stepStation(-1));
 els.heroNextBtn.addEventListener('click', () => stepStation(1));
-els.player.addEventListener('playing', () => { els.npStatus.textContent = 'На живо'; setPlayingUI(true); setPlayIcon(true); renderFavoritesList(); renderAllList(); renderWorldList(); });
+els.player.addEventListener('playing', () => { setPlayingUI(true); setPlayIcon(true); renderFavoritesList(); renderAllList(); renderWorldList(); });
 els.player.addEventListener('pause', () => { setPlayingUI(false); setStatus('На пауза'); setPlayIcon(false); renderFavoritesList(); renderAllList(); renderWorldList(); });
 els.player.addEventListener('waiting', () => { setPlayingUI(false); setStatus('Свързване…'); });
 els.player.addEventListener('error', () => { setPlayingUI(false); setStatus('Грешка при свързване'); });
 
 function setStatus(text) {
-  els.npStatus.textContent = text;
   els.heroStatus.textContent = text;
 }
 
@@ -1563,21 +1520,17 @@ function stopNowPlayingPolling() {
 
 function setPlayIcon(playing) {
   const d = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M8 5v14l11-7z"/>';
-  els.playIcon.innerHTML = d;
   els.heroPlayIcon.innerHTML = d;
 }
 
 function updateNowPlaying() {
   if (!currentStation) {
-    els.nowPlaying.classList.remove('visible');
     els.hero.style.display = 'none';
     els.playerEmpty.style.display = 'block';
     return;
   }
-  els.nowPlaying.classList.add('visible');
   els.hero.style.display = 'flex';
   els.playerEmpty.style.display = 'none';
-  els.npName.textContent = currentStation.name;
   els.heroName.textContent = currentStation.name;
   setPlayingUI(false);
   setStatus('Свързване…');
@@ -1591,15 +1544,10 @@ function updateNowPlaying() {
 
   const logo = logoSrcFor(currentStation);
   if (logo) {
-    els.npLogo.src = logo;
-    els.npLogo.style.display = '';
-    els.npLogoFallback.style.display = 'none';
     els.heroLogo.src = logo;
     els.heroLogo.style.display = '';
     els.heroLogoFallback.style.display = 'none';
   } else {
-    els.npLogo.style.display = 'none';
-    els.npLogoFallback.style.display = 'flex';
     els.heroLogo.style.display = 'none';
     els.heroLogoFallback.style.display = 'flex';
   }
