@@ -912,7 +912,10 @@ const els = {
 };
 
 // ---------- Station catalog ----------
-fetch('stations.json').then(r => r.json()).then(list => {
+// Awaited by onAuthStateChanged before resolving the synced last-station
+// id below - auth can resolve before or after this fetch, and curatedById
+// has to be populated first or the lookup would silently miss.
+const stationsReady = fetch('stations.json').then(r => r.json()).then(list => {
   curatedStations = list.map(s => ({ ...s, source: 'curated' }));
   curatedById = new Map(curatedStations.map(s => [s.id, s]));
   initAllCountryChips();
@@ -993,6 +996,22 @@ onAuthStateChanged(auth, async (user) => {
       renderFavoritesList();
       if (activeTab === 'all') renderAllList();
     });
+    // Cross-device convenience only, not a resume-on-launch source of
+    // truth - the app keeps using its own local last station on its own
+    // launches. This just lets a fresh web tab pick up wherever playback
+    // last left off (app or web) instead of always starting blank. Curated
+    // stations only, same restriction the app's own local save already
+    // has (see saveLastStation() in main.dart) - Radio Browser ids aren't
+    // resolvable without a full snapshot like favorites carry. A one-time
+    // read, and only applied if nothing's already selected this session,
+    // so it can never hijack a station the user already picked.
+    await stationsReady;
+    if (!currentStation) {
+      const lastStationSnap = await getDoc(doc(db, 'users', user.uid, 'sync', 'lastStation'));
+      const lastId = lastStationSnap.data()?.id;
+      const lastStation = lastId ? curatedById.get(lastId) : null;
+      if (lastStation) presetStation(lastStation);
+    }
   } else {
     // Free tier: favorites never touch Firestore - purely local to this
     // browser, per the agreed Free/Premium split (see project memory
@@ -1361,6 +1380,30 @@ function playStation(station) {
   currentStation = station;
   els.player.src = station.url;
   els.player.play().catch(() => {});
+  updateNowPlaying();
+  renderFavoritesList();
+  renderAllList();
+  renderWorldList();
+
+  // Mirrors the app's saveLastStation() - curated only, same restriction
+  // it already has, and one-way to the web side only (see the read in
+  // onAuthStateChanged above); the app never reads this back.
+  if (isPremium && currentUser && station.source === 'curated') {
+    setDoc(doc(db, 'users', currentUser.uid, 'sync', 'lastStation'), {
+      id: station.id,
+      source: 'curated',
+      updatedAt: serverTimestamp(),
+    }).catch(e => console.error('LAST STATION SYNC ERROR', e));
+  }
+}
+
+// Selects a station as ready-to-play without starting playback - used only
+// to pre-select the synced last station on page load. Browsers block
+// unrequested audio autoplay anyway, and silently starting sound the
+// instant someone signs in would be surprising regardless.
+function presetStation(station) {
+  currentStation = station;
+  els.player.src = station.url;
   updateNowPlaying();
   renderFavoritesList();
   renderAllList();
