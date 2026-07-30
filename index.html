@@ -1415,8 +1415,20 @@ function stopPlayback() {
 
 function togglePlayPause() {
   if (!currentStation) return;
-  if (els.player.paused) { els.player.play().catch(() => {}); }
-  else { els.player.pause(); }
+  if (els.player.paused) {
+    // A live stream has to reconnect fresh on resume, not continue from
+    // wherever the browser's buffer stopped at - plain play() on an <audio>
+    // element that still has its old src loaded resumes from the paused
+    // position instead of the actual live edge (confirmed live: the song
+    // title/art already showed the current song right away, since that's
+    // polled independently, but the audio itself kept playing whatever was
+    // live back when Pause was pressed). Re-assigning src forces a fresh
+    // request to the stream, same as picking the station again would.
+    els.player.src = currentStation.url;
+    els.player.play().catch(() => {});
+  } else {
+    els.player.pause();
+  }
 }
 
 // Mirrors the app's _stepStation(): cycles within favorites if the
