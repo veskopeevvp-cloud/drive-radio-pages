@@ -367,15 +367,28 @@
     max-width: 152px;
   }
 
+  /* A button, not a plain label - click to filter the list down to just
+     that day (click again to clear). Kept visually close to a plain
+     section heading so it doesn't look like a generic pill/chip. */
   .history-day-label {
+    display: block;
     color: var(--text-dim);
     font-size: 0.78em;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin: 18px 0 8px;
+    padding: 4px 6px;
+    margin-left: -6px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
   }
   .history-day-label:first-child { margin-top: 0; }
+  .history-day-label:hover { background: var(--panel-2); color: var(--text); }
+  .history-day-label.active { background: var(--orange); color: #000; }
 
   .history-card {
     display: flex;
@@ -1115,6 +1128,11 @@ els.premiumModal.addEventListener('click', (e) => {
 const HISTORY_FETCH_LIMIT = 200;
 const HISTORY_MAX_ENTRIES = 200;
 let historyEntries = [];   // raw docs from the last fetch, newest first
+// Which day-group's card is currently isolated by clicking its heading, or
+// null for no filter - combines with the text search box rather than
+// replacing it. Persists across a search box edit and panel close/reopen,
+// same as the search text itself already does.
+let activeHistoryDayFilter = null;
 
 // Splits an ICY "Artist - Title" string the same way the Cloud Function's
 // fetchAlbumArt() does server-side, so a web listening session records
@@ -1245,6 +1263,22 @@ function historyCard(entry) {
   return card;
 }
 
+// Day headings always render for every day present in the (text-filtered)
+// results, even while a day filter is active - that's what lets clicking a
+// *different* heading jump straight to it instead of first having to clear
+// the current filter.
+function historyDayLabel(label) {
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = 'history-day-label' + (activeHistoryDayFilter === label ? ' active' : '');
+  el.textContent = label;
+  el.addEventListener('click', () => {
+    activeHistoryDayFilter = activeHistoryDayFilter === label ? null : label;
+    renderHistoryList();
+  });
+  return el;
+}
+
 function renderHistoryList() {
   const q = els.historySearchBox.value.trim().toLowerCase();
   const filtered = q
@@ -1255,20 +1289,21 @@ function renderHistoryList() {
     : historyEntries;
 
   els.historyList.innerHTML = '';
-  els.historyEmptyState.style.display = filtered.length === 0 ? 'block' : 'none';
 
   let lastLabel = null;
+  let visibleCount = 0;
   for (const entry of filtered) {
     const label = dayLabel(entry.timestamp);
     if (label !== lastLabel) {
-      const labelEl = document.createElement('div');
-      labelEl.className = 'history-day-label';
-      labelEl.textContent = label;
-      els.historyList.appendChild(labelEl);
+      els.historyList.appendChild(historyDayLabel(label));
       lastLabel = label;
     }
-    els.historyList.appendChild(historyCard(entry));
+    if (!activeHistoryDayFilter || label === activeHistoryDayFilter) {
+      els.historyList.appendChild(historyCard(entry));
+      visibleCount++;
+    }
   }
+  els.historyEmptyState.style.display = visibleCount === 0 ? 'block' : 'none';
 }
 
 async function fetchAndRenderHistory() {
