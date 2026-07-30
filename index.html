@@ -549,6 +549,100 @@
     user-select: none;
   }
   .filter-chip.active { background: var(--orange); border-color: var(--orange); color: #000; }
+  /* Deliberately distinct from the quick-country chips above - those
+     toggle a filter in place, this one opens the full country picker, so
+     it gets an icon and outline treatment instead of pretending to be
+     another quick filter. */
+  .filter-chip.countries-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: transparent;
+  }
+
+  .world-country-header {
+    color: var(--text-dim);
+    font-size: 0.8em;
+    margin: 2px 0 12px;
+  }
+
+  /* ---------- Countries panel (full 241-country picker) ---------- */
+  .countries-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 90;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .countries-overlay.open { opacity: 1; pointer-events: auto; }
+  .countries-panel {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: 420px;
+    max-width: 100vw;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    z-index: 91;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    box-shadow: -20px 0 60px rgba(0,0,0,0.4);
+  }
+  .countries-panel.open { transform: translateX(0); }
+  .countries-panel-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 20px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .countries-panel-header h3 { margin: 0; flex: 1; font-size: 1.1em; }
+  .countries-panel-close {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: none;
+    background: var(--panel-2);
+    color: var(--text-dim);
+    font-size: 1.2em;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .countries-panel-close:hover { background: #262626; color: var(--text); }
+  .countries-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 20px 30px;
+    scrollbar-width: thin;
+    scrollbar-color: #3a3a3a transparent;
+  }
+  .countries-panel-body::-webkit-scrollbar { width: 8px; }
+  .countries-panel-body::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 8px; }
+  #countriesSearchBox {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 0.9em;
+    margin-bottom: 12px;
+    position: sticky;
+    top: 0;
+  }
+  #countriesSearchBox:focus { outline: none; border-color: var(--orange); }
+  .country-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 6px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .country-row:hover { background: var(--panel-2); }
+  .country-row .flag { font-size: 1.3em; flex-shrink: 0; }
+  .country-row .name { flex: 1; font-size: 0.92em; }
+  .country-row .count { color: var(--text-dim); font-size: 0.82em; }
 
   .tabs {
     display: flex;
@@ -740,6 +834,7 @@
 
       <div id="worldChips" style="display:none;">
         <div class="chip-row" id="countryChips"></div>
+        <div class="filter-chip countries-chip" id="countriesChipBtn" style="display:inline-flex; margin-bottom: 10px;">🌍 Държави</div>
         <div class="chip-row" id="genreChips"></div>
       </div>
 
@@ -801,6 +896,19 @@
       <div id="historyList"></div>
       <div id="historyEmptyState" class="empty-state" style="display:none;">Все още няма история — пусни радио и се върни по-късно.</div>
     </div>
+  </div>
+</div>
+
+<div id="countriesOverlay" class="countries-overlay"></div>
+<div id="countriesPanel" class="countries-panel">
+  <div class="countries-panel-header">
+    <h3>Държави</h3>
+    <button class="countries-panel-close" id="countriesPanelClose" aria-label="Затвори">&times;</button>
+  </div>
+  <div class="countries-panel-body">
+    <input type="text" id="countriesSearchBox" placeholder="Търси държава...">
+    <div id="countriesList"></div>
+    <div id="countriesEmptyState" class="empty-state" style="display:none;">Нищо не съвпада.</div>
   </div>
 </div>
 
@@ -882,6 +990,13 @@ const els = {
   historyPlatformSelect: document.getElementById('historyPlatformSelect'),
   historyList: document.getElementById('historyList'),
   historyEmptyState: document.getElementById('historyEmptyState'),
+  countriesChipBtn: document.getElementById('countriesChipBtn'),
+  countriesOverlay: document.getElementById('countriesOverlay'),
+  countriesPanel: document.getElementById('countriesPanel'),
+  countriesPanelClose: document.getElementById('countriesPanelClose'),
+  countriesSearchBox: document.getElementById('countriesSearchBox'),
+  countriesList: document.getElementById('countriesList'),
+  countriesEmptyState: document.getElementById('countriesEmptyState'),
 };
 
 // ---------- Station catalog ----------
@@ -1793,7 +1908,26 @@ let worldResults = [];
 let worldLoading = false;
 let activeCountry = null;
 let activeGenre = null;
+let activeCountryInfo = null;   // {code, name, stationCount} of the active country, once known
 let worldSearchQuery = '';
+let allCountriesCache = null;   // all 241, fetched once per page load
+
+// Backs the "Държави" picker - every country Radio Browser has, with its
+// true station count, so picking one can show "Germany - showing 150 of
+// 4 280" instead of silently capping with no explanation. Mirrors
+// RadioBrowserService.getCountries() in the app.
+async function fetchAllCountries() {
+  if (allCountriesCache) return allCountriesCache;
+  const url = new URL(RB_BASE + '/countries');
+  const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+  const json = await res.json();
+  const countries = json
+    .map(c => ({ code: c.iso_3166_1 || '', name: c.name || '', stationCount: c.stationcount || 0 }))
+    .filter(c => c.code && c.name)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  allCountriesCache = countries;
+  return countries;
+}
 
 async function loadWorld(fetchFn) {
   worldLoading = true;
@@ -1813,11 +1947,7 @@ function initWorldChips() {
     const chip = document.createElement('div');
     chip.className = 'filter-chip';
     chip.textContent = flagFor(code) + ' ' + code;
-    chip.addEventListener('click', () => {
-      activeCountry = code; activeGenre = null; worldSearchQuery = ''; els.searchBox.value = '';
-      updateChipActive();
-      loadWorld(() => rbFetch('/stations/search', { countrycode: code, order: 'clickcount', reverse: 'true', limit: 40 }));
-    });
+    chip.addEventListener('click', () => selectCountry(code));
     els.countryChips.appendChild(chip);
   });
 
@@ -1827,12 +1957,35 @@ function initWorldChips() {
     chip.className = 'filter-chip';
     chip.textContent = tag[0].toUpperCase() + tag.slice(1);
     chip.addEventListener('click', () => {
-      activeGenre = tag; activeCountry = null; worldSearchQuery = ''; els.searchBox.value = '';
+      activeGenre = tag; activeCountry = null; activeCountryInfo = null; worldSearchQuery = ''; els.searchBox.value = '';
       updateChipActive();
-      loadWorld(() => rbFetch('/stations/search', { tag, order: 'clickcount', reverse: 'true', limit: 40 }));
+      // 150, not the old 40 - Radio Browser has hundreds of stations for a
+      // single country (335 for Bulgaria alone, confirmed live), so 40 was
+      // hiding most of what's actually there. Mirrors the same change in
+      // the app's RadioBrowserService.
+      loadWorld(() => rbFetch('/stations/search', { tag, order: 'clickcount', reverse: 'true', limit: 150 }));
     });
     els.genreChips.appendChild(chip);
   });
+}
+
+// Shared by both the quick chips and the "Държави" picker below - `info`
+// (name + true station count) is already known when this comes from the
+// picker; a quick chip only has the bare code, so this resolves the rest
+// from the same cached getAllCountries() list.
+function selectCountry(code, info) {
+  activeCountry = code; activeGenre = null; worldSearchQuery = ''; els.searchBox.value = '';
+  activeCountryInfo = info || null;
+  updateChipActive();
+  loadWorld(() => rbFetch('/stations/search', { countrycode: code, order: 'clickcount', reverse: 'true', limit: 150 }));
+
+  if (!info) {
+    fetchAllCountries().then(countries => {
+      if (activeCountry !== code) return;
+      const match = countries.find(c => c.code === code);
+      if (match) { activeCountryInfo = match; renderWorldList(); }
+    }).catch(() => {});
+  }
 }
 
 function updateChipActive() {
@@ -1842,6 +1995,18 @@ function updateChipActive() {
 
 function renderWorldList() {
   els.worldList.innerHTML = '';
+
+  // Makes the 150-per-country cap read as "we loaded 150 of however many
+  // exist", not "this country only has 150 stations" - only once the true
+  // total is actually known (immediately from the Държави picker, a beat
+  // later for a quick chip, once its own fetchAllCountries() lookup resolves).
+  if (activeCountryInfo && !worldLoading) {
+    const header = document.createElement('div');
+    header.className = 'world-country-header';
+    header.textContent = `${activeCountryInfo.name} — показани ${worldResults.length} от ${activeCountryInfo.stationCount}`;
+    els.worldList.appendChild(header);
+  }
+
   if (worldLoading) {
     const loading = document.createElement('div');
     loading.className = 'empty-state';
@@ -1864,15 +2029,67 @@ function onWorldSearch(q) {
   worldSearchQuery = q;
   clearTimeout(worldSearchTimer);
   if (!q.trim()) {
-    activeCountry = null; activeGenre = null; updateChipActive();
+    activeCountry = null; activeGenre = null; activeCountryInfo = null; updateChipActive();
     loadWorld(() => rbFetch('/stations/search', { order: 'clickcount', reverse: 'true', limit: 20 }));
     return;
   }
   worldSearchTimer = setTimeout(() => {
-    activeCountry = null; activeGenre = null; updateChipActive();
+    activeCountry = null; activeGenre = null; activeCountryInfo = null; updateChipActive();
     loadWorld(() => rbFetch('/stations/search', { name: q.trim(), order: 'clickcount', reverse: 'true', limit: 40 }));
   }, 400);
 }
+
+// ---------- Countries panel (full 241-country picker) ----------
+// Reuses the same flagFor() the quick-country chips already use, above.
+function renderCountriesList() {
+  const query = els.countriesSearchBox.value.trim().toLowerCase();
+  const all = allCountriesCache || [];
+  const filtered = query
+    ? all.filter(c => c.name.toLowerCase().includes(query) || c.code.toLowerCase().includes(query))
+    : all;
+
+  els.countriesList.innerHTML = '';
+  els.countriesEmptyState.style.display = filtered.length === 0 ? 'block' : 'none';
+
+  filtered.forEach(country => {
+    const row = document.createElement('div');
+    row.className = 'country-row';
+    row.innerHTML = `
+      <span class="flag">${flagFor(country.code)}</span>
+      <span class="name">${country.name}</span>
+      <span class="count">${country.stationCount}</span>
+    `;
+    row.addEventListener('click', () => {
+      closeCountriesPanel();
+      selectCountry(country.code, country);
+    });
+    els.countriesList.appendChild(row);
+  });
+}
+
+async function openCountriesPanel() {
+  els.countriesOverlay.classList.add('open');
+  els.countriesPanel.classList.add('open');
+  els.countriesList.innerHTML = '<div class="empty-state">Зареждане…</div>';
+  try {
+    await fetchAllCountries();
+    renderCountriesList();
+  } catch {
+    els.countriesList.innerHTML = '';
+    els.countriesEmptyState.textContent = 'Не успяхме да заредим списъка. Опитай отново.';
+    els.countriesEmptyState.style.display = 'block';
+  }
+}
+
+function closeCountriesPanel() {
+  els.countriesOverlay.classList.remove('open');
+  els.countriesPanel.classList.remove('open');
+}
+
+els.countriesChipBtn.addEventListener('click', openCountriesPanel);
+els.countriesPanelClose.addEventListener('click', closeCountriesPanel);
+els.countriesOverlay.addEventListener('click', closeCountriesPanel);
+els.countriesSearchBox.addEventListener('input', renderCountriesList);
 
 initWorldChips();
 
