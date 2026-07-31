@@ -833,8 +833,8 @@
       <div class="chip-row" id="allCountryChips" style="display:none;"></div>
 
       <div id="worldChips" style="display:none;">
-        <div class="chip-row" id="countryChips"></div>
         <div class="filter-chip countries-chip" id="countriesChipBtn" style="display:inline-flex; margin-bottom: 10px;">🌍 Държави</div>
+        <div class="chip-row" id="countryChips"></div>
         <div class="chip-row" id="genreChips"></div>
       </div>
 
@@ -1912,6 +1912,16 @@ let activeCountryInfo = null;   // {code, name, stationCount} of the active coun
 let worldSearchQuery = '';
 let allCountriesCache = null;   // all 241, fetched once per page load
 
+const WORLD_PAGE_SIZE = 150;
+// Only country/genre browsing can page deeper (Radio Browser's offset param) -
+// Popular is a fixed top list and Search already merges three separate
+// queries, so both leave this null and never show "Зареди още". Mirrors
+// ExploreWorldwidePage's _pageFetch in the app.
+let worldPageFetch = null;      // (offset) => Promise<station[]>
+let worldOffset = 0;
+let worldHasMore = false;
+let worldLoadingMore = false;
+
 // Backs the "Държави" picker - every country Radio Browser has, with its
 // true station count, so picking one can show "Germany - showing 150 of
 // 4 280" instead of silently capping with no explanation. Mirrors
@@ -1931,6 +1941,7 @@ async function fetchAllCountries() {
 
 async function loadWorld(fetchFn) {
   worldLoading = true;
+  worldOffset = 0;
   renderWorldList();
   try {
     worldResults = await fetchFn();
@@ -1938,6 +1949,30 @@ async function loadWorld(fetchFn) {
     worldResults = [];
   }
   worldLoading = false;
+  worldHasMore = worldPageFetch != null && worldResults.length === WORLD_PAGE_SIZE;
+  renderWorldList();
+}
+
+// Appends the next page instead of replacing worldResults - a large country
+// (Germany, the US) can run into the thousands, so this is what actually
+// lets someone reach past the first 150 instead of raising a static limit
+// that would never be "enough" for those anyway. Mirrors _loadMore() in the
+// app's ExploreWorldwidePage.
+async function loadMoreWorld() {
+  if (!worldPageFetch || worldLoadingMore || !worldHasMore) return;
+  worldLoadingMore = true;
+  renderWorldList();
+  const nextOffset = worldOffset + WORLD_PAGE_SIZE;
+  try {
+    const more = await worldPageFetch(nextOffset);
+    worldResults = [...worldResults, ...more];
+    worldOffset = nextOffset;
+    worldHasMore = more.length === WORLD_PAGE_SIZE;
+  } catch {
+    // leave worldHasMore as-is; the button just stays tappable again
+    // instead of silently giving up on a transient failure.
+  }
+  worldLoadingMore = false;
   renderWorldList();
 }
 
@@ -1962,8 +1997,10 @@ function initWorldChips() {
       // 150, not the old 40 - Radio Browser has hundreds of stations for a
       // single country (335 for Bulgaria alone, confirmed live), so 40 was
       // hiding most of what's actually there. Mirrors the same change in
-      // the app's RadioBrowserService.
-      loadWorld(() => rbFetch('/stations/search', { tag, order: 'clickcount', reverse: 'true', limit: 150 }));
+      // the app's RadioBrowserService. "Зареди още" (worldPageFetch) covers
+      // whatever's beyond that.
+      worldPageFetch = (offset) => rbFetch('/stations/search', { tag, order: 'clickcount', reverse: 'true', limit: WORLD_PAGE_SIZE, offset });
+      loadWorld(() => worldPageFetch(0));
     });
     els.genreChips.appendChild(chip);
   });
@@ -1977,7 +2014,8 @@ function selectCountry(code, info) {
   activeCountry = code; activeGenre = null; worldSearchQuery = ''; els.searchBox.value = '';
   activeCountryInfo = info || null;
   updateChipActive();
-  loadWorld(() => rbFetch('/stations/search', { countrycode: code, order: 'clickcount', reverse: 'true', limit: 150 }));
+  worldPageFetch = (offset) => rbFetch('/stations/search', { countrycode: code, order: 'clickcount', reverse: 'true', limit: WORLD_PAGE_SIZE, offset });
+  loadWorld(() => worldPageFetch(0));
 
   if (!info) {
     fetchAllCountries().then(countries => {
@@ -2022,6 +2060,23 @@ function renderWorldList() {
     return;
   }
   worldResults.forEach(s => els.worldList.appendChild(stationCard(s)));
+
+  if (worldHasMore) {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'text-align:center; padding:16px 0;';
+    if (worldLoadingMore) {
+      wrap.textContent = 'Зареждане…';
+      wrap.style.color = 'var(--text-dim)';
+    } else {
+      const btn = document.createElement('button');
+      btn.className = 'btn';
+      btn.style.cssText = 'width:auto; display:inline-flex; padding:10px 22px;';
+      btn.textContent = 'Зареди още';
+      btn.addEventListener('click', loadMoreWorld);
+      wrap.appendChild(btn);
+    }
+    els.worldList.appendChild(wrap);
+  }
 }
 
 let worldSearchTimer = null;
@@ -2030,11 +2085,13 @@ function onWorldSearch(q) {
   clearTimeout(worldSearchTimer);
   if (!q.trim()) {
     activeCountry = null; activeGenre = null; activeCountryInfo = null; updateChipActive();
+    worldPageFetch = null;
     loadWorld(() => rbFetch('/stations/search', { order: 'clickcount', reverse: 'true', limit: 20 }));
     return;
   }
   worldSearchTimer = setTimeout(() => {
     activeCountry = null; activeGenre = null; activeCountryInfo = null; updateChipActive();
+    worldPageFetch = null;
     loadWorld(() => rbFetch('/stations/search', { name: q.trim(), order: 'clickcount', reverse: 'true', limit: 40 }));
   }, 400);
 }
