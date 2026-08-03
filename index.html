@@ -485,22 +485,21 @@
   .station-list-col::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 8px; }
   .station-list-col::-webkit-scrollbar-thumb:hover { background: #4a4a4a; }
 
-  /* Sticky within the list column's own scroll area, not the page - stays
-     pinned while the cards below scroll underneath it. Needs an opaque
-     background so scrolled-past cards don't show through the gap between
-     chip rows/tabs while pinned. */
-  .station-list-col .tabs,
-  .station-list-col #searchBox,
-  .station-list-col #allCountryChips,
-  .station-list-col #worldChips {
+  /* Sticky within the list column's own scroll area, not the page - one
+     single sticky block (tabs + search + chips stack inside it via normal
+     flow) instead of several independently-positioned sticky elements each
+     guessing the pixel height of whatever's above it. Hardcoded per-element
+     top offsets drifted out of sync with their actual rendered height
+     (different screen widths, font rendering) and left a gap the scrolling
+     list peeked through - this can't drift since nothing needs to know
+     anyone else's height anymore. */
+  .station-list-col .sticky-header {
     position: sticky;
+    top: 0;
     background: var(--bg);
     z-index: 5;
+    padding-top: 2px;
   }
-  .station-list-col .tabs { top: 0; padding-top: 2px; }
-  .station-list-col #searchBox { top: 70px; }
-  .station-list-col #allCountryChips { top: 130px; padding-top: 2px; }
-  .station-list-col #worldChips { top: 130px; padding-top: 2px; }
 
   /* Below this width there's no room for a side-by-side layout, so the
      player stacks above the list instead of beside it - but it keeps its
@@ -655,12 +654,18 @@
     margin-right: 22px;
     color: var(--text-dim);
     font-weight: 600;
-    font-size: 0.95em;
+    font-size: 1em;
     cursor: pointer;
-    border-bottom: 2px solid transparent;
+    border-bottom: 3px solid transparent;
     user-select: none;
+    transition: color 0.15s, border-color 0.15s;
   }
-  .tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--orange);
+    border-bottom-color: var(--orange);
+    font-weight: 700;
+  }
 
   #searchBox {
     width: 100%;
@@ -822,20 +827,22 @@
     </div>
 
     <div class="station-list-col">
-      <div class="tabs">
-        <div class="tab active" data-tab="favorites">⭐ Любими</div>
-        <div class="tab" data-tab="all">📻 Подбрани</div>
-        <div class="tab" data-tab="world">🌍 Свят</div>
-      </div>
+      <div class="sticky-header">
+        <div class="tabs">
+          <div class="tab active" data-tab="favorites">⭐ Любими</div>
+          <div class="tab" data-tab="all">📻 Подбрани</div>
+          <div class="tab" data-tab="world">🌍 Свят</div>
+        </div>
 
-      <input type="text" id="searchBox" placeholder="Търси станция..." style="display:none;">
+        <input type="text" id="searchBox" placeholder="Търси станция..." style="display:none;">
 
-      <div class="chip-row" id="allCountryChips" style="display:none;"></div>
+        <div class="chip-row" id="allCountryChips" style="display:none;"></div>
 
-      <div id="worldChips" style="display:none;">
-        <div class="filter-chip countries-chip" id="countriesChipBtn" style="display:inline-flex; margin-bottom: 10px;">🌍 Държави</div>
-        <div class="chip-row" id="countryChips"></div>
-        <div class="chip-row" id="genreChips"></div>
+        <div id="worldChips" style="display:none;">
+          <div class="filter-chip countries-chip" id="countriesChipBtn" style="display:inline-flex; margin-bottom: 10px;">🌍 Държави</div>
+          <div class="chip-row" id="countryChips"></div>
+          <div class="chip-row" id="genreChips"></div>
+        </div>
       </div>
 
       <div id="favoritesList"></div>
