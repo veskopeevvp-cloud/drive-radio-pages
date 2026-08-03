@@ -1820,7 +1820,9 @@ function initAllCountryChips() {
     chip.className = 'filter-chip';
     // Flag only, same as the World tab's quick chips - the letter code
     // was redundant clutter next to a flag that's already recognizable.
-    chip.textContent = flagFor(code);
+    // Image-based (flagImgHTML), not the emoji text flagFor() returns -
+    // Windows browsers render that as two plain letters, not a flag.
+    chip.innerHTML = flagImgHTML(code);
     chip.title = code;
     chip.addEventListener('click', () => {
       allCountryFilter = code;
@@ -1870,6 +1872,23 @@ function flagFor(code) {
   const a = upper.charCodeAt(0) - 65, b = upper.charCodeAt(1) - 65;
   if (a < 0 || a > 25 || b < 0 || b > 25) return '';
   return String.fromCodePoint(base + a) + String.fromCodePoint(base + b);
+}
+
+// Windows browsers render the regional-indicator pair flagFor() produces
+// as two plain letters-in-boxes, not an actual flag glyph (confirmed live)
+// - unlike macOS/iOS, which do show a real flag for the same characters.
+// An <img> pointed at Twemoji's own SVG for the same codepoint pair
+// sidesteps font support entirely and looks the same everywhere. Used
+// only for the quick country chips for now, not every flag on the page.
+function flagImgHTML(code, sizePx = 16) {
+  if (!code || code.length !== 2) return '';
+  const upper = code.toUpperCase();
+  const a = upper.charCodeAt(0) - 65, b = upper.charCodeAt(1) - 65;
+  if (a < 0 || a > 25 || b < 0 || b > 25) return '';
+  const cp1 = (0x1F1E6 + a).toString(16);
+  const cp2 = (0x1F1E6 + b).toString(16);
+  const url = `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${cp1}-${cp2}.svg`;
+  return `<img src="${url}" alt="${upper}" width="${sizePx}" height="${sizePx}" style="vertical-align:middle;">`;
 }
 
 const RB_BASE = 'https://all.api.radio-browser.info/json';
@@ -1995,7 +2014,9 @@ function initWorldChips() {
     // Flag only, no letter code - these are the quick-access shortcuts,
     // recognizable at a glance without needing the ISO code spelled out
     // too. title carries the code for anyone who wants to double check.
-    chip.textContent = flagFor(code);
+    // Image-based (flagImgHTML), not the emoji text flagFor() returns -
+    // Windows browsers render that as two plain letters, not a flag.
+    chip.innerHTML = flagImgHTML(code);
     chip.title = code;
     chip.addEventListener('click', () => selectCountry(code));
     els.countryChips.appendChild(chip);
