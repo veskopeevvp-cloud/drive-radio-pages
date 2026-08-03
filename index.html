@@ -1989,7 +1989,11 @@ function initWorldChips() {
   quickCountries().forEach(code => {
     const chip = document.createElement('div');
     chip.className = 'filter-chip';
-    chip.textContent = flagFor(code) + ' ' + code;
+    // Flag only, no letter code - these are the quick-access shortcuts,
+    // recognizable at a glance without needing the ISO code spelled out
+    // too. title carries the code for anyone who wants to double check.
+    chip.textContent = flagFor(code);
+    chip.title = code;
     chip.addEventListener('click', () => selectCountry(code));
     els.countryChips.appendChild(chip);
   });
