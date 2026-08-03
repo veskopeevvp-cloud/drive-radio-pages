@@ -1818,7 +1818,10 @@ function initAllCountryChips() {
   curatedCountries().forEach(code => {
     const chip = document.createElement('div');
     chip.className = 'filter-chip';
-    chip.textContent = flagFor(code) + ' ' + code;
+    // Flag only, same as the World tab's quick chips - the letter code
+    // was redundant clutter next to a flag that's already recognizable.
+    chip.textContent = flagFor(code);
+    chip.title = code;
     chip.addEventListener('click', () => {
       allCountryFilter = code;
       updateAllCountryChipActive();
