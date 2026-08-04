@@ -525,15 +525,23 @@
     }
   }
 
-  /* Phone landscape: width stays above 860px (so the grid/side-by-side
-     layout from above applies, not the stacked one) but height collapses
-     to ~300-400px. The player's natural content height (hero art + name +
-     transport row) was taller than that available height, and since
-     main{overflow:hidden} doesn't scroll, the excess got silently clipped
-     off the bottom - specifically the play/prev/next buttons, since they're
-     last in the column. Shrinking the art and tightening the spacing here
-     brings the whole player back under the available height instead of
-     letting it overflow. */
+  /* Phone landscape: height collapses to ~300-400px regardless of width.
+     Two problems compounded here:
+     1) The player's natural content height (hero art + name + transport
+        row) was taller than that available height, and since
+        main{overflow:hidden} doesn't scroll, the excess got silently
+        clipped off the bottom - specifically the play/prev/next buttons,
+        since they're last in the column. Shrinking the art and tightening
+        the spacing fixes this part.
+     2) Below 860px width, .app-content stacks the player above the list
+        (see the @media (max-width:860px) block above) - fine for portrait,
+        but in landscape that means BOTH have to fit in the same ~300px of
+        height, one above the other. Even the shrunk player alone can eat
+        most of that, squeezing the station list down to a barely-visible
+        sliver. A short-but-wide viewport is exactly what the side-by-side
+        grid layout (used above 860px) is for, so this forces that layout
+        here too regardless of width - landscape phones have plenty of
+        width to spare, just not height. */
   @media (max-height: 500px) and (orientation: landscape) {
     #hero { padding: 6px 0 10px; }
     .hero-art { width: 64px; height: 64px; margin-bottom: 8px; border-radius: 14px; }
@@ -546,6 +554,26 @@
     .hero-play-btn svg { width: 24px; height: 24px; }
     .hero-transport-btn { width: 36px; height: 36px; }
     .hero-transport-btn svg { width: 20px; height: 20px; }
+
+    .app-content {
+      display: grid;
+      grid-template-columns: minmax(180px, 240px) 1fr;
+      gap: 16px;
+      height: 100%;
+      align-items: stretch;
+    }
+    .player-column {
+      flex-shrink: unset;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .station-list-col {
+      flex: unset;
+      height: 100%;
+      padding-right: 12px;
+    }
   }
 
   /* ---------- World tab filter chips ---------- */
