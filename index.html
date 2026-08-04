@@ -525,6 +525,29 @@
     }
   }
 
+  /* Phone landscape: width stays above 860px (so the grid/side-by-side
+     layout from above applies, not the stacked one) but height collapses
+     to ~300-400px. The player's natural content height (hero art + name +
+     transport row) was taller than that available height, and since
+     main{overflow:hidden} doesn't scroll, the excess got silently clipped
+     off the bottom - specifically the play/prev/next buttons, since they're
+     last in the column. Shrinking the art and tightening the spacing here
+     brings the whole player back under the available height instead of
+     letting it overflow. */
+  @media (max-height: 500px) and (orientation: landscape) {
+    #hero { padding: 6px 0 10px; }
+    .hero-art { width: 64px; height: 64px; margin-bottom: 8px; border-radius: 14px; }
+    .hero-name-row { margin-bottom: 2px; }
+    .hero-name { font-size: 1.05em; }
+    .hero-origin { margin-bottom: 2px; }
+    .hero-status { margin-bottom: 8px; }
+    .hero-transport { gap: 20px; }
+    .hero-play-btn { width: 56px; height: 56px; }
+    .hero-play-btn svg { width: 24px; height: 24px; }
+    .hero-transport-btn { width: 36px; height: 36px; }
+    .hero-transport-btn svg { width: 20px; height: 20px; }
+  }
+
   /* ---------- World tab filter chips ---------- */
   .chip-row {
     display: flex;
