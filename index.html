@@ -2086,7 +2086,7 @@ function initWorldChips() {
       // hiding most of what's actually there. Mirrors the same change in
       // the app's RadioBrowserService. "Зареди още" (worldPageFetch) covers
       // whatever's beyond that.
-      worldPageFetch = (offset) => rbFetch('/stations/search', { tag, order: 'clickcount', reverse: 'true', limit: WORLD_PAGE_SIZE, offset });
+      worldPageFetch = (offset) => rbFetch('/stations/search', { tag, order: 'clicktimestamp', reverse: 'true', limit: WORLD_PAGE_SIZE, offset });
       loadWorld(() => worldPageFetch(0));
     });
     els.genreChips.appendChild(chip);
@@ -2101,7 +2101,7 @@ function selectCountry(code, info) {
   activeCountry = code; activeGenre = null; worldSearchQuery = ''; els.searchBox.value = '';
   activeCountryInfo = info || null;
   updateChipActive();
-  worldPageFetch = (offset) => rbFetch('/stations/search', { countrycode: code, order: 'clickcount', reverse: 'true', limit: WORLD_PAGE_SIZE, offset });
+  worldPageFetch = (offset) => rbFetch('/stations/search', { countrycode: code, order: 'clicktimestamp', reverse: 'true', limit: WORLD_PAGE_SIZE, offset });
   loadWorld(() => worldPageFetch(0));
 
   if (!info) {
@@ -2173,13 +2173,13 @@ function onWorldSearch(q) {
   if (!q.trim()) {
     activeCountry = null; activeGenre = null; activeCountryInfo = null; updateChipActive();
     worldPageFetch = null;
-    loadWorld(() => rbFetch('/stations/search', { order: 'clickcount', reverse: 'true', limit: 20 }));
+    loadWorld(() => rbFetch('/stations/search', { order: 'clicktimestamp', reverse: 'true', limit: 20 }));
     return;
   }
   worldSearchTimer = setTimeout(() => {
     activeCountry = null; activeGenre = null; activeCountryInfo = null; updateChipActive();
     worldPageFetch = null;
-    loadWorld(() => rbFetch('/stations/search', { name: q.trim(), order: 'clickcount', reverse: 'true', limit: 40 }));
+    loadWorld(() => rbFetch('/stations/search', { name: q.trim(), order: 'clicktimestamp', reverse: 'true', limit: 40 }));
   }, 400);
 }
 
@@ -2259,7 +2259,7 @@ document.querySelectorAll('.tab').forEach(tabEl => {
       els.searchBox.placeholder = 'Търси държава, жанр или станция...';
       els.searchBox.value = worldSearchQuery;
       if (worldResults.length === 0 && !worldLoading) {
-        loadWorld(() => rbFetch('/stations/search', { order: 'clickcount', reverse: 'true', limit: 20 }));
+        loadWorld(() => rbFetch('/stations/search', { order: 'clicktimestamp', reverse: 'true', limit: 20 }));
       }
     }
   });
