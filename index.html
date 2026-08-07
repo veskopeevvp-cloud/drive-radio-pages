@@ -751,6 +751,22 @@
   }
   .station-card:hover { border-color: #3a3a3a; }
   .station-card.playing { background: #3d1f00; border-color: var(--orange); }
+  /* Favorites-only drag-to-reorder (desktop/mouse). Touch falls back to
+     plain tap-to-play - HTML5 drag doesn't fire on touch, which is fine
+     since reordering is a "sit at the computer and arrange" use case. */
+  .station-card.fav-draggable { cursor: grab; }
+  .station-card.fav-draggable:active { cursor: grabbing; }
+  .station-card.fav-dragging { opacity: 0.4; }
+  .station-card.fav-drop-target { border-top: 2px solid var(--orange); }
+  .fav-grip {
+    flex-shrink: 0;
+    color: var(--text-dim);
+    font-size: 1.15em;
+    line-height: 1;
+    padding: 0 2px;
+    cursor: grab;
+    user-select: none;
+  }
   .station-card img.logo {
     width: 46px; height: 46px;
     border-radius: 8px;
@@ -1840,7 +1856,63 @@ function renderFavoritesList() {
     els.favoritesList.appendChild(empty);
     return;
   }
-  favoriteStations.forEach(s => els.favoritesList.appendChild(stationCard(s)));
+  favoriteStations.forEach((s, index) => {
+    const card = stationCard(s);
+    makeFavoriteReorderable(card, index);
+    els.favoritesList.appendChild(card);
+  });
+}
+
+// Drag-to-reorder for the favorites list only (not Подбрани/Свят). Reorders
+// the favoriteStations array in place, then re-renders and calls
+// pushFavorites() - which already gates persistence correctly (Premium ->
+// Firestore users/{uid}/sync/favorites in this exact order, so the phone
+// picks up the new order via Cloud Sync; free -> localStorage, stays on this
+// browser). So reordering can never leak Premium sync to free users. Mouse
+// only: HTML5 drag doesn't fire on touch, where cards stay plain tap-to-play.
+let favDragFrom = null;
+function makeFavoriteReorderable(card, index) {
+  card.classList.add('fav-draggable');
+  card.draggable = true;
+
+  const grip = document.createElement('span');
+  grip.className = 'fav-grip';
+  grip.textContent = '⠿';
+  grip.title = 'Плъзни за пренареждане';
+  // A plain click on the grip shouldn't start playback - it's a drag handle.
+  grip.addEventListener('click', (e) => e.stopPropagation());
+  card.appendChild(grip);
+
+  card.addEventListener('dragstart', (e) => {
+    favDragFrom = index;
+    card.classList.add('fav-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    // Firefox won't start a drag unless some data is set.
+    try { e.dataTransfer.setData('text/plain', String(index)); } catch (_) {}
+  });
+  card.addEventListener('dragend', () => {
+    favDragFrom = null;
+    [...els.favoritesList.children].forEach(c =>
+      c.classList.remove('fav-dragging', 'fav-drop-target'));
+  });
+  card.addEventListener('dragover', (e) => {
+    if (favDragFrom === null) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    card.classList.add('fav-drop-target');
+  });
+  card.addEventListener('dragleave', () => card.classList.remove('fav-drop-target'));
+  card.addEventListener('drop', (e) => {
+    e.preventDefault();
+    card.classList.remove('fav-drop-target');
+    const from = favDragFrom;
+    const to = index;
+    if (from === null || from === to) return;
+    const [moved] = favoriteStations.splice(from, 1);
+    favoriteStations.splice(to, 0, moved);
+    renderFavoritesList();
+    pushFavorites();
+  });
 }
 
 let allCountryFilter = null;
