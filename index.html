@@ -1871,7 +1871,55 @@ function renderFavoritesList() {
 // browser). So reordering can never leak Premium sync to free users. Mouse
 // only: HTML5 drag doesn't fire on touch, where cards stay plain tap-to-play.
 let favDragFrom = null;
+
+// Auto-scroll the favorites list while dragging near its top/bottom edge, so a
+// station can be moved across a list taller than the viewport without dropping
+// it and hand-scrolling. HTML5 drag fires dragover continuously with the
+// pointer position; we scroll the .station-list-col container (the element
+// that actually has overflow-y) toward whichever edge the pointer hovers.
+let favAutoScrollDir = 0;    // -1 up, +1 down, 0 idle
+let favAutoScrollRAF = null;
+let favAutoScrollWired = false;
+
+function favAutoScrollLoop(container) {
+  if (favAutoScrollDir === 0) { favAutoScrollRAF = null; return; }
+  container.scrollTop += favAutoScrollDir * 14;
+  favAutoScrollRAF = requestAnimationFrame(() => favAutoScrollLoop(container));
+}
+
+function stopFavAutoScroll() {
+  favAutoScrollDir = 0;
+  if (favAutoScrollRAF !== null) { cancelAnimationFrame(favAutoScrollRAF); favAutoScrollRAF = null; }
+}
+
+// Wire the container-level dragover once (renderFavoritesList re-runs on every
+// change, so per-render wiring would stack duplicate listeners).
+function ensureFavAutoScrollWired() {
+  if (favAutoScrollWired) return;
+  const container = document.querySelector('.station-list-col');
+  if (!container) return;
+  favAutoScrollWired = true;
+  container.addEventListener('dragover', (e) => {
+    if (favDragFrom === null) return;
+    e.preventDefault();
+    const rect = container.getBoundingClientRect();
+    // The sticky header overlays the top of the scroll area - start the
+    // top edge-zone below it so scroll-up triggers near the visible top.
+    const header = container.querySelector('.sticky-header');
+    const headerH = header ? header.offsetHeight : 0;
+    const EDGE = 70;
+    const topZone = rect.top + headerH + EDGE;
+    const bottomZone = rect.bottom - EDGE;
+    if (e.clientY < topZone && container.scrollTop > 0) favAutoScrollDir = -1;
+    else if (e.clientY > bottomZone) favAutoScrollDir = 1;
+    else favAutoScrollDir = 0;
+    if (favAutoScrollDir !== 0 && favAutoScrollRAF === null) favAutoScrollLoop(container);
+  });
+  container.addEventListener('drop', stopFavAutoScroll);
+}
+
 function makeFavoriteReorderable(card, index) {
+  ensureFavAutoScrollWired();
   card.classList.add('fav-draggable');
   card.draggable = true;
 
@@ -1892,6 +1940,7 @@ function makeFavoriteReorderable(card, index) {
   });
   card.addEventListener('dragend', () => {
     favDragFrom = null;
+    stopFavAutoScroll();
     [...els.favoritesList.children].forEach(c =>
       c.classList.remove('fav-dragging', 'fav-drop-target'));
   });
@@ -1905,6 +1954,7 @@ function makeFavoriteReorderable(card, index) {
   card.addEventListener('drop', (e) => {
     e.preventDefault();
     card.classList.remove('fav-drop-target');
+    stopFavAutoScroll();
     const from = favDragFrom;
     const to = index;
     if (from === null || from === to) return;
