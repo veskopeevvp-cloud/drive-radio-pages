@@ -2201,18 +2201,43 @@ function initWorldChips() {
     chip.className = 'filter-chip';
     chip.textContent = tag[0].toUpperCase() + tag.slice(1);
     chip.addEventListener('click', () => {
-      activeGenre = tag; activeCountry = null; activeCountryInfo = null; worldSearchQuery = ''; els.searchBox.value = '';
+      // Toggle the genre; KEEP any active country so genre + country combine
+      // (e.g. news within Bulgaria) instead of the genre clearing the country.
+      activeGenre = (activeGenre === tag) ? null : tag;
+      worldSearchQuery = ''; els.searchBox.value = '';
       updateChipActive();
-      // 150, not the old 40 - Radio Browser has hundreds of stations for a
-      // single country (335 for Bulgaria alone, confirmed live), so 40 was
-      // hiding most of what's actually there. Mirrors the same change in
-      // the app's RadioBrowserService. "Зареди още" (worldPageFetch) covers
-      // whatever's beyond that.
-      worldPageFetch = (offset) => rbFetch('/stations/search', { tag, order: 'clickcount', reverse: 'true', limit: WORLD_PAGE_SIZE, offset });
-      loadWorld(() => worldPageFetch(0));
+      applyWorldSelection();
     });
     els.genreChips.appendChild(chip);
   });
+}
+
+// Builds the World fetch for the current country + genre + search combination
+// and (re)loads the list, so the two filter types STACK (a genre within a
+// country) instead of one clearing the other, and a name search stays scoped
+// to the active country if one is selected.
+function applyWorldSelection() {
+  const q = worldSearchQuery.trim();
+  if (q) {
+    worldPageFetch = null; // a name search isn't paged
+    const params = activeCountry
+      ? { name: q, countrycode: activeCountry, order: 'clickcount', reverse: 'true', limit: WORLD_PAGE_SIZE }
+      : { name: q, order: 'clickcount', reverse: 'true', limit: 40 };
+    loadWorld(() => rbFetch('/stations/search', params));
+    return;
+  }
+  if (activeCountry && activeGenre) {
+    worldPageFetch = (offset) => rbFetch('/stations/search', { countrycode: activeCountry, tag: activeGenre, order: 'clickcount', reverse: 'true', limit: WORLD_PAGE_SIZE, offset });
+  } else if (activeCountry) {
+    worldPageFetch = (offset) => rbFetch('/stations/search', { countrycode: activeCountry, order: 'clickcount', reverse: 'true', limit: WORLD_PAGE_SIZE, offset });
+  } else if (activeGenre) {
+    worldPageFetch = (offset) => rbFetch('/stations/search', { tag: activeGenre, order: 'clickcount', reverse: 'true', limit: WORLD_PAGE_SIZE, offset });
+  } else {
+    worldPageFetch = null;
+    loadWorld(() => rbFetch('/stations/search', { order: 'clickcount', reverse: 'true', limit: 20 }));
+    return;
+  }
+  loadWorld(() => worldPageFetch(0));
 }
 
 // Shared by both the quick chips and the "Държави" picker below - `info`
@@ -2220,13 +2245,17 @@ function initWorldChips() {
 // picker; a quick chip only has the bare code, so this resolves the rest
 // from the same cached getAllCountries() list.
 function selectCountry(code, info) {
-  activeCountry = code; activeGenre = null; worldSearchQuery = ''; els.searchBox.value = '';
-  activeCountryInfo = info || null;
+  // Tapping the active country chip again clears it (back to genre-only or
+  // Popular); otherwise select it, KEEPING any active genre so the two
+  // combine. The picker always passes `info`, so it never toggles off.
+  const deselect = (activeCountry === code && !info);
+  activeCountry = deselect ? null : code;
+  activeCountryInfo = deselect ? null : (info || null);
+  worldSearchQuery = ''; els.searchBox.value = '';
   updateChipActive();
-  worldPageFetch = (offset) => rbFetch('/stations/search', { countrycode: code, order: 'clickcount', reverse: 'true', limit: WORLD_PAGE_SIZE, offset });
-  loadWorld(() => worldPageFetch(0));
+  applyWorldSelection();
 
-  if (!info) {
+  if (!deselect && !info) {
     fetchAllCountries().then(countries => {
       if (activeCountry !== code) return;
       const match = countries.find(c => c.code === code);
@@ -2247,7 +2276,7 @@ function renderWorldList() {
   // exist", not "this country only has 150 stations" - only once the true
   // total is actually known (immediately from the Държави picker, a beat
   // later for a quick chip, once its own fetchAllCountries() lookup resolves).
-  if (activeCountryInfo && !worldLoading) {
+  if (activeCountryInfo && !worldLoading && !activeGenre && !worldSearchQuery.trim()) {
     const header = document.createElement('div');
     header.className = 'world-country-header';
     header.textContent = `${activeCountryInfo.name} — показани ${worldResults.length} от ${activeCountryInfo.stationCount}`;
@@ -2293,15 +2322,17 @@ function onWorldSearch(q) {
   worldSearchQuery = q;
   clearTimeout(worldSearchTimer);
   if (!q.trim()) {
-    activeCountry = null; activeGenre = null; activeCountryInfo = null; updateChipActive();
-    worldPageFetch = null;
-    loadWorld(() => rbFetch('/stations/search', { order: 'clickcount', reverse: 'true', limit: 20 }));
+    // Clearing the box returns to the active country's full list (or Popular
+    // if no country is selected) rather than always jumping to global Popular.
+    activeGenre = null; updateChipActive();
+    applyWorldSelection();
     return;
   }
   worldSearchTimer = setTimeout(() => {
-    activeCountry = null; activeGenre = null; activeCountryInfo = null; updateChipActive();
-    worldPageFetch = null;
-    loadWorld(() => rbFetch('/stations/search', { name: q.trim(), order: 'clickcount', reverse: 'true', limit: 40 }));
+    // The search stays scoped to the selected country if one is active;
+    // genre is dropped (a name search is specific enough on its own).
+    activeGenre = null; updateChipActive();
+    applyWorldSelection();
   }, 400);
 }
 
