@@ -173,6 +173,19 @@
   .hero-origin { color: var(--text-dim); font-size: 0.85em; margin-bottom: 6px; }
   .hero-status { color: var(--text-dim); font-size: 0.9em; margin-bottom: 22px; }
   .hero-song { display: none; color: var(--orange); font-weight: 600; font-size: 0.95em; margin-bottom: 22px; }
+  /* "Open current song in <platform>" - colored per platform (green Spotify,
+     red YouTube...), sits under the big play button, mirrors the app's music
+     button. Background/color are set from the platform in JS. */
+  .music-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 16px; padding: 6px 16px; border-radius: 20px;
+    font-size: 12px; font-weight: 700; text-decoration: none;
+    cursor: pointer; border: none;
+    transition: transform 0.12s ease, filter 0.12s ease;
+  }
+  .music-btn:hover { transform: scale(1.05); filter: brightness(1.08); }
+  .music-btn:active { transform: scale(0.97); }
+  .music-btn svg { width: 14px; height: 14px; fill: currentColor; }
   .hero-transport {
     display: flex;
     align-items: center;
@@ -222,6 +235,9 @@
     margin-bottom: 4px;
   }
   .hero-name-row .hero-name { margin-bottom: 0; }
+  .hero-fav-btn { padding: 4px; border-radius: 50%; transition: background 0.12s, transform 0.12s; }
+  .hero-fav-btn:hover { background: rgba(255,193,7,0.14); transform: scale(1.1); }
+  .hero-fav-btn:active { transform: scale(0.92); }
   .history-icon-btn {
     width: 30px; height: 30px;
     border-radius: 50%;
@@ -902,6 +918,7 @@
             <svg viewBox="0 0 24 24"><path d="M13,3A9,9,0,0,0,4,12H1L4.89,15.89L4.96,16.03L9,12H6A7,7,0,1,1,8.1,17.75L6.74,19.19A9,9,0,1,0,13,3M12,8V13L16.28,15.54L17,14.33L13.5,12.25V8H12Z"/></svg>
           </button>
           <div class="hero-name" id="heroName">—</div>
+          <button id="heroFavBtn" class="star-btn hero-fav-btn" title="Добави в любими" style="display:none;">☆</button>
         </div>
         <div class="hero-origin" id="heroOrigin" style="display:none;"></div>
         <div class="hero-status" id="heroStatus">Спряно</div>
@@ -921,6 +938,9 @@
             <svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 6l8.5 6L6 18z"/></svg>
           </button>
         </div>
+        <a id="musicBtn" class="music-btn" target="_blank" rel="noopener" style="display:none;">
+          <svg viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg><span id="musicBtnLabel"></span>
+        </a>
       </div>
       <div id="playerEmpty" class="player-empty">
         <div class="icon">🎵</div>
@@ -1392,14 +1412,20 @@ async function pushHistoryEntry(station, artist, title, albumArtUrl) {
 // lives in local SharedPreferences only, not Firestore - so the web page
 // keeps its own independent preference, remembered per-browser.
 const MUSIC_PLATFORM_KEY = 'driveradio_music_platform_v1';
+// Brand colors + text colors mirror the app's musicPlatforms map (main.dart)
+// so the web "open in <platform>" button looks identical: green Spotify, red
+// YouTube, purple Deezer, etc.
 const MUSIC_PLATFORMS = {
-  spotify: { label: 'Spotify', searchUrl: q => `https://open.spotify.com/search/${encodeURIComponent(q)}` },
-  youtubeMusic: { label: 'YouTube Music', searchUrl: q => `https://music.youtube.com/search?q=${encodeURIComponent(q)}` },
-  youtube: { label: 'YouTube', searchUrl: q => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}` },
-  appleMusic: { label: 'Apple Music', searchUrl: q => `https://music.apple.com/search?term=${encodeURIComponent(q)}` },
-  deezer: { label: 'Deezer', searchUrl: q => `https://www.deezer.com/search/${encodeURIComponent(q)}` },
-  tidal: { label: 'Tidal', searchUrl: q => `https://listen.tidal.com/search?q=${encodeURIComponent(q)}` },
+  spotify: { label: 'Spotify', color: '#1DB954', textColor: '#000', searchUrl: q => `https://open.spotify.com/search/${encodeURIComponent(q)}` },
+  youtubeMusic: { label: 'YouTube Music', color: '#FF0000', textColor: '#fff', searchUrl: q => `https://music.youtube.com/search?q=${encodeURIComponent(q)}` },
+  youtube: { label: 'YouTube', color: '#FF0000', textColor: '#fff', searchUrl: q => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}` },
+  appleMusic: { label: 'Apple Music', color: '#FA243C', textColor: '#fff', searchUrl: q => `https://music.apple.com/search?term=${encodeURIComponent(q)}` },
+  deezer: { label: 'Deezer', color: '#A238FF', textColor: '#fff', searchUrl: q => `https://www.deezer.com/search/${encodeURIComponent(q)}` },
+  tidal: { label: 'Tidal', color: '#000000', textColor: '#fff', searchUrl: q => `https://listen.tidal.com/search?q=${encodeURIComponent(q)}` },
 };
+// Raw current song string ("Artist - Title"), '' when just "На живо". Drives
+// the music button (shown only with a real song, like the app's buildMusicButton).
+let currentSong = '';
 
 function loadMusicPlatform() {
   const saved = localStorage.getItem(MUSIC_PLATFORM_KEY);
@@ -1415,7 +1441,23 @@ for (const [key, info] of Object.entries(MUSIC_PLATFORMS)) {
 els.historyPlatformSelect.value = loadMusicPlatform();
 els.historyPlatformSelect.addEventListener('change', () => {
   localStorage.setItem(MUSIC_PLATFORM_KEY, els.historyPlatformSelect.value);
+  updateMusicButton();
 });
+
+// The "open current song in <platform>" button under the play controls:
+// hidden when there's no real song, otherwise colored + labeled + linked to
+// the chosen platform's search for the current track (mirrors the app).
+const musicBtnEl = document.getElementById('musicBtn');
+const musicBtnLabelEl = document.getElementById('musicBtnLabel');
+function updateMusicButton() {
+  if (!currentSong.trim()) { musicBtnEl.style.display = 'none'; return; }
+  const info = MUSIC_PLATFORMS[loadMusicPlatform()] || MUSIC_PLATFORMS.spotify;
+  musicBtnEl.style.background = info.color;
+  musicBtnEl.style.color = info.textColor;
+  musicBtnLabelEl.textContent = info.label;
+  musicBtnEl.href = info.searchUrl(currentSong);
+  musicBtnEl.style.display = 'inline-flex';
+}
 
 function dayLabel(date) {
   const now = new Date();
@@ -1592,8 +1634,25 @@ function toggleFavorite(station) {
   renderFavoritesList();
   renderAllList();
   renderWorldList();
+  updateHeroFav();
   pushFavorites();
 }
+
+// The favorite star to the RIGHT of the station name in the player, mirroring
+// the app's [history icon][name][star] row. Reflects + toggles the CURRENT
+// station's favorite state, and stays in sync whether toggled here or in a list.
+function updateHeroFav() {
+  const b = document.getElementById('heroFavBtn');
+  if (!b) return;
+  if (!currentStation) { b.style.display = 'none'; return; }
+  const fav = isFavorite(currentStation);
+  b.textContent = fav ? '★' : '☆';
+  b.title = fav ? 'Премахни от любими' : 'Добави в любими';
+  b.style.display = 'inline-flex';
+}
+document.getElementById('heroFavBtn').addEventListener('click', () => {
+  if (currentStation) toggleFavorite(currentStation);
+});
 
 // ---------- Playback ----------
 function playStation(station) {
@@ -1744,6 +1803,8 @@ async function fetchAndShowNowPlayingSong() {
     // station's placeholder with the old one's song/art.
     if (!currentStation || currentStation.url !== stationUrl) return;
     els.heroSong.textContent = data.song ? ('🎵 ' + data.song) : '🎵 На живо';
+    currentSong = data.song || '';
+    updateMusicButton();
     if (data.artUrl) {
       els.heroLogo.src = data.artUrl;
       els.heroLogo.style.display = '';
@@ -1770,6 +1831,8 @@ async function fetchAndShowNowPlayingSong() {
   } catch {
     if (!currentStation || currentStation.url !== stationUrl) return;
     els.heroSong.textContent = '🎵 На живо';
+    currentSong = '';
+    updateMusicButton();
     resetHeroArtToStationLogo();
   }
 }
@@ -1787,6 +1850,8 @@ function stopNowPlayingPolling() {
   }
   lastRecordedHistoryKey = null;
   els.heroSong.textContent = '🎵 На живо';
+  currentSong = '';
+  updateMusicButton();
   resetHeroArtToStationLogo();
 }
 
@@ -1804,6 +1869,7 @@ function updateNowPlaying() {
   els.hero.style.display = 'flex';
   els.playerEmpty.style.display = 'none';
   els.heroName.textContent = currentStation.name;
+  updateHeroFav();
   setPlayingUI(false);
   setStatus('Свързване…');
 
