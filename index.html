@@ -12,6 +12,7 @@
     --panel-2: #1c1c1c;
     --border: #2a2a2a;
     --orange: #ff8c1a;
+    --header-h: 141px; /* header incl. the stacked clock; main = viewport - this, so the page itself never scrolls */
     --orange-dim: #7a3f00;
     --text: #e8e8e8;
     --text-dim: #9a9a9a;
@@ -87,13 +88,13 @@
   .drclock-wx.hidden { display: none; }
   .drclock-wx svg { width: 15px; height: 15px; display: block; }
   .drclock-temp { font-family: 'DSEG7', monospace; font-size: 12px; letter-spacing: 1px; }
-  @media (max-width: 560px) { .drclock { display: none; } }
+  @media (max-width: 560px) { .drclock { display: none; } :root { --header-h: 78px; } }
 
   main {
     max-width: 1180px;
     margin: 0 auto;
     padding: 24px 20px;
-    height: calc(100vh - 77px);
+    height: calc(100vh - var(--header-h));
     box-sizing: border-box;
     overflow: hidden;
   }
