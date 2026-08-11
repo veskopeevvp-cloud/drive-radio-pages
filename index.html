@@ -2251,7 +2251,11 @@ function selectCountry(code, info) {
   const deselect = (activeCountry === code && !info);
   activeCountry = deselect ? null : code;
   activeCountryInfo = deselect ? null : (info || null);
-  worldSearchQuery = ''; els.searchBox.value = '';
+  // Keep any active search term: the natural flow is "type rock -> narrow to a
+  // country", and Radio Browser buries small markets in a global popularity
+  // sort, so switching country must re-run the SAME search scoped to it (e.g.
+  // rock + BG surfaces all Bulgarian rock stations) instead of wiping it.
+  // applyWorldSelection() already builds name+countrycode when both are set.
   updateChipActive();
   applyWorldSelection();
 
