@@ -410,8 +410,14 @@
     background: var(--panel-2);
     color: var(--text);
     font-size: 0.85em;
+    font-weight: 600;
+    cursor: pointer;
     max-width: 152px;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   }
+  /* Keep the OPEN dropdown options readable (dark bg, light text) even when the
+     closed control is tinted the platform's bright brand color. */
+  #historyPlatformSelect option { background: var(--panel); color: var(--text); font-weight: 400; }
 
   /* A button, not a plain label - click to filter the list down to just
      that day (click again to clear). Kept visually close to a plain
@@ -1439,10 +1445,24 @@ for (const [key, info] of Object.entries(MUSIC_PLATFORMS)) {
   els.historyPlatformSelect.appendChild(opt);
 }
 els.historyPlatformSelect.value = loadMusicPlatform();
+colorPlatformSelect();
 els.historyPlatformSelect.addEventListener('change', () => {
   localStorage.setItem(MUSIC_PLATFORM_KEY, els.historyPlatformSelect.value);
+  colorPlatformSelect();
   updateMusicButton();
 });
+
+// Tints the platform picker with the selected platform's brand color so it
+// pops on the black/orange page (green Spotify, red YouTube...) instead of
+// blending in as a grey dropdown - draws the eye to a feature people would
+// otherwise never discover.
+function colorPlatformSelect() {
+  const info = MUSIC_PLATFORMS[loadMusicPlatform()] || MUSIC_PLATFORMS.spotify;
+  const s = els.historyPlatformSelect;
+  s.style.background = info.color;
+  s.style.color = info.textColor;
+  s.style.borderColor = info.color;
+}
 
 // The "open current song in <platform>" button under the play controls:
 // hidden when there's no real song, otherwise colored + labeled + linked to
