@@ -577,6 +577,33 @@
     }
   }
 
+  /* Phone portrait: the hero player was rendering at its full desktop
+     size (160px art, 84px play button, generous paddings) even though
+     .app-content already stacks it above the list at this width. That
+     alone easily runs 500px+ tall, pushing the tabs/list below the fold -
+     on a real phone only 1-2 station cards were visible before the user
+     had to scroll, same complaint the app had before the #106 compact-card
+     fix. Shrinking the hero (not as aggressively as the landscape
+     emergency-squeeze below, there's more height to work with here) brings
+     the tab bar and list into view much sooner. */
+  @media (max-width: 480px) {
+    #hero { padding: 8px 0 18px; }
+    .hero-art { width: 110px; height: 110px; margin-bottom: 12px; }
+    .hero-name { font-size: 1.15em; }
+    .hero-origin { margin-bottom: 4px; }
+    .hero-status { margin-bottom: 12px; }
+    .music-btn { margin-top: 10px; }
+    .hero-transport { gap: 20px; }
+    .hero-play-btn { width: 68px; height: 68px; }
+    .hero-play-btn svg { width: 28px; height: 28px; }
+    .hero-transport-btn { width: 40px; height: 40px; }
+    .hero-transport-btn svg { width: 22px; height: 22px; }
+
+    /* A bit denser too, same spirit as the app's compact favorites cards. */
+    .station-card { padding: 8px 10px; margin-bottom: 8px; }
+    .station-card img.logo, .station-card .logo-fallback { width: 40px; height: 40px; }
+  }
+
   /* Phone landscape: height collapses to ~300-400px regardless of width.
      Two problems compounded here:
      1) The player's natural content height (hero art + name + transport
