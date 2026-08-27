@@ -146,6 +146,13 @@
     margin-top: 10px;
     min-height: 1.2em;
   }
+  .auth-toggle {
+    color: var(--text-dim);
+    font-size: 0.85em;
+    margin-top: 14px;
+  }
+  .auth-toggle a { color: var(--orange); text-decoration: none; font-weight: 600; }
+  .auth-toggle a:hover { text-decoration: underline; }
 
   /* ---------- App ---------- */
   #app { display: none; }
@@ -955,10 +962,11 @@
   <div class="divider">или с имейл</div>
   <form id="emailForm">
     <input type="email" id="emailInput" placeholder="Имейл" required autocomplete="username">
-    <input type="password" id="passwordInput" placeholder="Парола" required autocomplete="current-password">
-    <button class="btn" type="submit">Вход с имейл</button>
+    <input type="password" id="passwordInput" placeholder="Парола (поне 6 символа)" required autocomplete="current-password" minlength="6">
+    <button class="btn" type="submit" id="emailSubmitBtn">Вход с имейл</button>
   </form>
   <div id="loginError"></div>
+  <div class="auth-toggle" id="authToggle">Нямаш акаунт? <a href="#" id="authToggleLink">Регистрирай се</a></div>
 </div>
 
 <main id="app">
@@ -1101,7 +1109,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider,
-  signInWithEmailAndPassword, signOut
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
@@ -1140,6 +1148,8 @@ const els = {
   userPhoto: document.getElementById('userPhoto'),
   userEmail: document.getElementById('userEmail'),
   loginError: document.getElementById('loginError'),
+  emailSubmitBtn: document.getElementById('emailSubmitBtn'),
+  authToggle: document.getElementById('authToggle'),
   favoritesList: document.getElementById('favoritesList'),
   allList: document.getElementById('allList'),
   worldList: document.getElementById('worldList'),
@@ -1209,13 +1219,49 @@ document.getElementById('googleSignInBtn').addEventListener('click', () => {
   });
 });
 
+// Same login screen serves both modes - toggling only changes which
+// Firebase call the form submits to and its own labels, not the markup.
+// Mirrors the app's login_page.dart _isRegisterMode pattern so behavior
+// stays consistent between the two clients.
+let isRegisterMode = false;
+
+function applyAuthMode() {
+  els.emailSubmitBtn.textContent = isRegisterMode ? 'Регистрация' : 'Вход с имейл';
+  els.authToggle.innerHTML = isRegisterMode
+    ? 'Вече имаш акаунт? <a href="#" id="authToggleLink">Влез</a>'
+    : 'Нямаш акаунт? <a href="#" id="authToggleLink">Регистрирай се</a>';
+}
+// Delegated on the container (not the <a> directly) since applyAuthMode()
+// replaces the <a> node via innerHTML on every toggle - a direct listener
+// would be lost the moment the mode changes once.
+els.authToggle.addEventListener('click', (e) => {
+  if (e.target.tagName !== 'A') return;
+  e.preventDefault();
+  isRegisterMode = !isRegisterMode;
+  els.loginError.textContent = '';
+  applyAuthMode();
+});
+
+function authErrorMessage(err) {
+  switch (err.code) {
+    case 'auth/email-already-in-use': return 'Вече има акаунт с този имейл - опитай да влезеш вместо да се регистрираш.';
+    case 'auth/weak-password': return 'Паролата трябва да е поне 6 символа.';
+    case 'auth/invalid-email': return 'Невалиден имейл адрес.';
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential': return 'Грешен имейл или парола.';
+    default: return 'Нещо се обърка: ' + err.message;
+  }
+}
+
 document.getElementById('emailForm').addEventListener('submit', (e) => {
   e.preventDefault();
   els.loginError.textContent = '';
   const email = document.getElementById('emailInput').value.trim();
   const password = document.getElementById('passwordInput').value;
-  signInWithEmailAndPassword(auth, email, password).catch(err => {
-    els.loginError.textContent = 'Грешен имейл или парола.';
+  const action = isRegisterMode ? createUserWithEmailAndPassword : signInWithEmailAndPassword;
+  action(auth, email, password).catch(err => {
+    els.loginError.textContent = authErrorMessage(err);
   });
 });
 
