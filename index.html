@@ -1771,7 +1771,48 @@ document.getElementById('heroFavBtn').addEventListener('click', () => {
 });
 
 // ---------- Playback ----------
+// ---------- Anonymous listening counter ----------
+// Mirrors the app's _updateListeningSession(): 60s of continuous playback
+// on one station = one valid listen, reported once. A pause, stop, error or
+// switching station ends the session; a brief re-buffer ('waiting') does
+// not. The backend stores only an aggregate count - no user/device id is
+// sent. Fire-and-forget: failures are ignored and never touch playback.
+const VALID_LISTEN_MS = 60000;
+let listenTimer = null;
+let listenStationId = null;
+
+function cancelListeningSession() {
+  clearTimeout(listenTimer);
+  listenTimer = null;
+  listenStationId = null;
+}
+
+function updateListeningSession() {
+  if (!currentStation || els.player.paused) { cancelListeningSession(); return; }
+  if (listenStationId === currentStation.id) return;
+  cancelListeningSession();
+  const station = currentStation;
+  listenStationId = station.id;
+  listenTimer = setTimeout(() => reportValidListen(station), VALID_LISTEN_MS);
+}
+
+function reportValidListen(station) {
+  if (!station.country || station.country.length > 10) return;
+  fetch('https://us-central1-drive-radio-b2473.cloudfunctions.net/logValidListen', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data: {
+      stationId: station.id,
+      stationCountry: station.country,
+      platform: 'web',
+      playbackContext: 'phone',
+    } }),
+    keepalive: true,
+  }).catch(() => {});
+}
+
 function playStation(station) {
+  cancelListeningSession();
   currentStation = station;
   els.player.src = station.url;
   els.player.play().catch(() => {});
@@ -1853,10 +1894,10 @@ function stepStation(delta) {
 els.heroPlayBtn.addEventListener('click', togglePlayPause);
 els.heroPrevBtn.addEventListener('click', () => stepStation(-1));
 els.heroNextBtn.addEventListener('click', () => stepStation(1));
-els.player.addEventListener('playing', () => { setPlayingUI(true); setPlayIcon(true); renderFavoritesList(); renderAllList(); renderWorldList(); });
-els.player.addEventListener('pause', () => { setPlayingUI(false); setStatus('На пауза'); setPlayIcon(false); renderFavoritesList(); renderAllList(); renderWorldList(); });
+els.player.addEventListener('playing', () => { updateListeningSession(); setPlayingUI(true); setPlayIcon(true); renderFavoritesList(); renderAllList(); renderWorldList(); });
+els.player.addEventListener('pause', () => { cancelListeningSession(); setPlayingUI(false); setStatus('На пауза'); setPlayIcon(false); renderFavoritesList(); renderAllList(); renderWorldList(); });
 els.player.addEventListener('waiting', () => { setPlayingUI(false); setStatus('Свързване…'); });
-els.player.addEventListener('error', () => { setPlayingUI(false); setStatus('Грешка при свързване'); });
+els.player.addEventListener('error', () => { cancelListeningSession(); setPlayingUI(false); setStatus('Грешка при свързване'); });
 
 function setStatus(text) {
   els.heroStatus.textContent = text;
