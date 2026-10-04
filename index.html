@@ -63,6 +63,31 @@
     color: var(--text-dim);
   }
   header .user img { width: 30px; height: 30px; border-radius: 50%; }
+  .get-app {
+    position: relative;
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-radius: 999px;
+    border: 1px solid var(--orange-dim);
+    color: var(--orange); text-decoration: none;
+    font-size: 0.88em; font-weight: 600; white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .get-app:hover, .get-app:focus-visible { background: rgba(255,140,26,0.12); }
+  .get-app > svg { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; }
+  .get-app-qr {
+    display: none;
+    position: absolute; top: calc(100% + 10px); right: 0;
+    width: 200px; padding: 12px 12px 10px;
+    background: #fff; border-radius: 14px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    color: #111; font-size: 0.82em; font-weight: 500; line-height: 1.35;
+    text-align: center; white-space: normal;
+  }
+  .get-app-qr svg { width: 176px; height: 176px; display: block; margin: 0 auto 6px; }
+  @media (hover: hover) and (min-width: 861px) {
+    .get-app:hover .get-app-qr, .get-app:focus-visible .get-app-qr { display: block; }
+  }
+  @media (max-width: 560px) { .get-app-label { display: none; } .get-app { padding: 8px; } }
 
   /* Casio-style clock + IP-based weather, mirroring the mobile app's
      landscape clock/weather widget (DSEG 7-segment font, orange temp).
@@ -968,6 +993,11 @@
   </div>
   </div>
   <div class="spacer"></div>
+  <a class="get-app" href="https://play.google.com/store/apps/details?id=bg.driveradio.app" target="_blank" rel="noopener" title="Свали приложението от Google Play" aria-label="Свали приложението Drive Radio от Google Play">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 1.01 7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>
+    <span class="get-app-label">Свали приложението</span>
+    <span class="get-app-qr"><svg role="img" aria-label="QR код към Drive Radio в Google Play" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 39 39" shape-rendering="crispEdges"><path fill="#ffffff" d="M0 0h39v39H0z"/><path stroke="#000000" d="M1 1.5h7m2 0h1m3 0h4m1 0h1m1 0h3m1 0h2m2 0h1m1 0h7M1 2.5h1m5 0h1m5 0h1m1 0h6m5 0h4m1 0h1m5 0h1M1 3.5h1m1 0h3m1 0h1m1 0h2m1 0h6m2 0h4m1 0h1m1 0h2m2 0h1m1 0h3m1 0h1M1 4.5h1m1 0h3m1 0h1m1 0h2m3 0h1m2 0h5m1 0h1m2 0h2m3 0h1m1 0h3m1 0h1M1 5.5h1m1 0h3m1 0h1m1 0h2m3 0h1m4 0h3m1 0h2m1 0h1m2 0h1m1 0h1m1 0h3m1 0h1M1 6.5h1m5 0h1m1 0h6m4 0h1m3 0h1m2 0h4m1 0h1m5 0h1M1 7.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M9 8.5h2m1 0h2m3 0h1m6 0h1m2 0h1m1 0h1M1 9.5h1m1 0h5m2 0h1m2 0h1m2 0h1m2 0h1m1 0h6m4 0h5M1 10.5h6m4 0h2m2 0h4m3 0h1m6 0h1m2 0h1m3 0h1M1 11.5h14m3 0h1m2 0h8m2 0h1m1 0h2m1 0h2M3 12.5h2m3 0h1m5 0h1m2 0h1m4 0h1m1 0h1m2 0h3m1 0h1m2 0h1m2 0h1M2 13.5h1m1 0h1m2 0h1m3 0h4m2 0h2m2 0h1m1 0h6m1 0h4m1 0h3M5 14.5h1m2 0h1m2 0h2m4 0h6m1 0h3m2 0h1m2 0h1M3 15.5h1m2 0h3m1 0h4m2 0h1m1 0h1m3 0h1m3 0h4m2 0h3m1 0h2M1 16.5h1m1 0h4m1 0h1m1 0h1m2 0h2m1 0h4m2 0h2m5 0h5m2 0h2M5 17.5h1m1 0h1m1 0h1m1 0h2m1 0h2m1 0h1m4 0h1m1 0h1m1 0h3m1 0h4m1 0h1M3 18.5h2m1 0h1m1 0h1m1 0h1m2 0h1m1 0h2m2 0h1m1 0h1m1 0h1m1 0h2m2 0h2m1 0h1m2 0h2M2 19.5h1m1 0h1m2 0h2m2 0h3m1 0h3m2 0h1m2 0h1m3 0h4m5 0h2M2 20.5h3m5 0h2m4 0h1m2 0h5m1 0h1m2 0h1m2 0h2m4 0h1M1 21.5h1m3 0h1m1 0h1m3 0h2m3 0h1m1 0h1m1 0h2m1 0h1m1 0h4m1 0h2m1 0h3M2 22.5h1m2 0h1m3 0h2m1 0h1m2 0h1m1 0h1m1 0h3m1 0h2m4 0h1m4 0h1M1 23.5h3m3 0h5m3 0h3m1 0h1m1 0h1m1 0h1m4 0h1m1 0h5m1 0h2M1 24.5h1m2 0h3m5 0h5m7 0h1m2 0h1m1 0h1m2 0h2m2 0h1M1 25.5h1m1 0h1m1 0h3m2 0h3m1 0h2m3 0h1m1 0h7m2 0h2m1 0h1m1 0h2M1 26.5h1m2 0h1m1 0h1m3 0h1m2 0h1m2 0h2m4 0h1m4 0h1m1 0h1m2 0h1m1 0h1M1 27.5h1m1 0h1m2 0h2m1 0h1m1 0h5m5 0h1m2 0h2m1 0h2m2 0h1m1 0h5M1 28.5h1m2 0h2m4 0h1m6 0h1m4 0h1m1 0h1m2 0h1m2 0h4m2 0h1M1 29.5h1m1 0h1m1 0h1m1 0h4m2 0h1m1 0h1m2 0h1m4 0h4m1 0h9M9 30.5h1m1 0h3m3 0h2m1 0h3m1 0h1m3 0h2m3 0h2m1 0h1M1 31.5h7m3 0h1m2 0h5m2 0h2m6 0h1m1 0h1m1 0h1m1 0h1m1 0h1M1 32.5h1m5 0h1m1 0h1m2 0h5m1 0h8m2 0h2m3 0h2m1 0h1M1 33.5h1m1 0h3m1 0h1m1 0h2m1 0h1m1 0h1m1 0h2m2 0h1m1 0h1m2 0h9m1 0h1m1 0h1M1 34.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h2m1 0h1m2 0h1m1 0h3m1 0h3m2 0h2m1 0h1m2 0h1M1 35.5h1m1 0h3m1 0h1m1 0h1m2 0h1m3 0h2m2 0h1m1 0h2m1 0h6m4 0h1m1 0h1M1 36.5h1m5 0h1m4 0h2m1 0h2m2 0h5m1 0h1m3 0h3m1 0h2m2 0h1M1 37.5h7m1 0h1m1 0h3m1 0h2m1 0h1m1 0h1m4 0h3m2 0h2m1 0h5"/></svg><span>Сканирай с телефона, за да отвориш Drive Radio в Google Play</span></span>
+  </a>
   <div class="user" id="userBar" style="display:none;">
     <img id="userPhoto" src="" alt="" style="display:none;">
     <span id="userEmail"></span>
