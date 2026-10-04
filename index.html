@@ -1068,6 +1068,18 @@
   </div>
 </div>
 
+<div id="signOutModal" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="signOutTitle">
+  <div class="modal-card">
+    <h3 id="signOutTitle">Излизане от профила?</h3>
+    <p class="modal-tagline" id="signOutWho"></p>
+    <div class="modal-actions">
+      <button id="switchAccountBtn" class="btn primary">Смени профила</button>
+      <button id="confirmSignOutBtn" class="btn">Изход</button>
+      <button id="cancelSignOutBtn" class="btn">Отказ</button>
+    </div>
+  </div>
+</div>
+
 <div id="historyOverlay" class="history-overlay"></div>
 <div id="historyPanel" class="history-panel">
   <div class="history-panel-header">
@@ -1212,9 +1224,17 @@ function logoSrcFor(station) {
 }
 
 // ---------- Auth ----------
+// select_account: without it Google silently reuses the last account, so a
+// visitor signed in with the wrong profile had no way to pick another one.
+function googleProvider() {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  return provider;
+}
+
 document.getElementById('googleSignInBtn').addEventListener('click', () => {
   els.loginError.textContent = '';
-  signInWithPopup(auth, new GoogleAuthProvider()).catch(e => {
+  signInWithPopup(auth, googleProvider()).catch(e => {
     els.loginError.textContent = 'Неуспешен вход: ' + e.message;
   });
 });
@@ -1265,7 +1285,38 @@ document.getElementById('emailForm').addEventListener('submit', (e) => {
   });
 });
 
-document.getElementById('signOutBtn').addEventListener('click', () => signOut(auth));
+// Sign-out asks first: people tap fast, and one stray tap used to log them
+// out. "Отказ" gets focus so a reflexive Enter does nothing.
+const signOutModal = document.getElementById('signOutModal');
+function hideSignOutModal() { signOutModal.style.display = 'none'; }
+
+document.getElementById('signOutBtn').addEventListener('click', () => {
+  document.getElementById('signOutWho').textContent =
+    currentUser && currentUser.email ? 'Влязъл си като ' + currentUser.email + '.' : '';
+  signOutModal.style.display = 'flex';
+  document.getElementById('cancelSignOutBtn').focus();
+});
+document.getElementById('cancelSignOutBtn').addEventListener('click', hideSignOutModal);
+signOutModal.addEventListener('click', (e) => { if (e.target === signOutModal) hideSignOutModal(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && signOutModal.style.display !== 'none') hideSignOutModal();
+});
+document.getElementById('confirmSignOutBtn').addEventListener('click', () => {
+  hideSignOutModal();
+  signOut(auth);
+});
+// Google accounts switch in place via the account picker (the popup has to
+// open straight from the click, or browsers block it); cancelling it keeps
+// the current profile. Email accounts sign out to the login form instead.
+document.getElementById('switchAccountBtn').addEventListener('click', () => {
+  hideSignOutModal();
+  const isGoogle = currentUser && currentUser.providerData.some(p => p.providerId === 'google.com');
+  if (!isGoogle) { signOut(auth); return; }
+  signInWithPopup(auth, googleProvider()).catch(e => {
+    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+    alert('Неуспешна смяна на профила: ' + e.message);
+  });
+});
 
 onAuthStateChanged(auth, async (user) => {
   currentUser = user;
