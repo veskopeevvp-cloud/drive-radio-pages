@@ -1885,12 +1885,14 @@ function allowScreenOff() {
   screenWakeLock = null;
 }
 
-// The browser drops the lock whenever the page is hidden; take it back.
+// Called straight from taps too: Safari only grants the lock inside a user
+// gesture. The browser drops the lock whenever the page is hidden; take it back.
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && !els.player.paused) keepScreenOn();
 });
 
 function playStation(station) {
+  keepScreenOn();
   cancelListeningSession();
   currentStation = station;
   els.player.src = station.url;
@@ -1944,6 +1946,7 @@ function togglePlayPause() {
     // polled independently, but the audio itself kept playing whatever was
     // live back when Pause was pressed). Re-assigning src forces a fresh
     // request to the stream, same as picking the station again would.
+    keepScreenOn();
     els.player.src = currentStation.url;
     els.player.play().catch(() => {});
   } else {
