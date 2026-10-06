@@ -1863,6 +1863,33 @@ function reportValidListen(station) {
   }).catch(() => {});
 }
 
+// ---------- Keep the screen on while playing (phones/tablets) ----------
+// Same idea as the keep-awake option in the app: a phone on a car mount
+// shouldn't go dark mid-drive. Skipped on desktops (mouse/trackpad).
+let screenWakeLock = null;
+const wantsWakeLock = 'wakeLock' in navigator && window.matchMedia('(pointer: coarse)').matches;
+
+async function keepScreenOn() {
+  if (!wantsWakeLock || screenWakeLock || document.visibilityState !== 'visible') return;
+  try {
+    screenWakeLock = await navigator.wakeLock.request('screen');
+    screenWakeLock.addEventListener('release', () => { screenWakeLock = null; });
+  } catch (_) {
+    // Refused (battery saver, unsupported) - the screen just times out as usual.
+  }
+}
+
+function allowScreenOff() {
+  if (!screenWakeLock) return;
+  screenWakeLock.release().catch(() => {});
+  screenWakeLock = null;
+}
+
+// The browser drops the lock whenever the page is hidden; take it back.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !els.player.paused) keepScreenOn();
+});
+
 function playStation(station) {
   cancelListeningSession();
   currentStation = station;
@@ -1946,10 +1973,10 @@ function stepStation(delta) {
 els.heroPlayBtn.addEventListener('click', togglePlayPause);
 els.heroPrevBtn.addEventListener('click', () => stepStation(-1));
 els.heroNextBtn.addEventListener('click', () => stepStation(1));
-els.player.addEventListener('playing', () => { updateListeningSession(); setPlayingUI(true); setPlayIcon(true); renderFavoritesList(); renderAllList(); renderWorldList(); });
-els.player.addEventListener('pause', () => { cancelListeningSession(); setPlayingUI(false); setStatus('На пауза'); setPlayIcon(false); renderFavoritesList(); renderAllList(); renderWorldList(); });
+els.player.addEventListener('playing', () => { updateListeningSession(); keepScreenOn(); setPlayingUI(true); setPlayIcon(true); renderFavoritesList(); renderAllList(); renderWorldList(); });
+els.player.addEventListener('pause', () => { cancelListeningSession(); allowScreenOff(); setPlayingUI(false); setStatus('На пауза'); setPlayIcon(false); renderFavoritesList(); renderAllList(); renderWorldList(); });
 els.player.addEventListener('waiting', () => { setPlayingUI(false); setStatus('Свързване…'); });
-els.player.addEventListener('error', () => { cancelListeningSession(); setPlayingUI(false); setStatus('Грешка при свързване'); });
+els.player.addEventListener('error', () => { cancelListeningSession(); allowScreenOff(); setPlayingUI(false); setStatus('Грешка при свързване'); });
 
 function setStatus(text) {
   els.heroStatus.textContent = text;
