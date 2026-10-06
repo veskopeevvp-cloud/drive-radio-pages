@@ -1903,7 +1903,12 @@ function setMediaPlaybackState(state) {
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = state;
 }
 
-if ('mediaSession' in navigator) {
+// iOS shows either previous/next or the 10-second seek pair, never both,
+// and touching the seek actions at all (even setting them to null) keeps
+// the seek pair - so they are never mentioned. Re-registered whenever
+// playback starts, in case the system reset them for the new stream.
+function registerMediaActions() {
+  if (!('mediaSession' in navigator)) return;
   const setAction = (action, handler) => {
     try { navigator.mediaSession.setActionHandler(action, handler); } catch (_) {}
   };
@@ -1911,10 +1916,8 @@ if ('mediaSession' in navigator) {
   setAction('pause', () => els.player.pause());
   setAction('previoustrack', () => stepStation(-1));
   setAction('nexttrack', () => stepStation(1));
-  setAction('seekbackward', null);
-  setAction('seekforward', null);
-  setAction('seekto', null);
 }
+registerMediaActions();
 
 // ---------- Keep the screen on while playing (phones/tablets) ----------
 // Same idea as the keep-awake option in the app: a phone on a car mount
@@ -2029,7 +2032,7 @@ function stepStation(delta) {
 els.heroPlayBtn.addEventListener('click', togglePlayPause);
 els.heroPrevBtn.addEventListener('click', () => stepStation(-1));
 els.heroNextBtn.addEventListener('click', () => stepStation(1));
-els.player.addEventListener('playing', () => { updateListeningSession(); keepScreenOn(); setMediaPlaybackState('playing'); setPlayingUI(true); setPlayIcon(true); renderFavoritesList(); renderAllList(); renderWorldList(); });
+els.player.addEventListener('playing', () => { updateListeningSession(); keepScreenOn(); registerMediaActions(); setMediaPlaybackState('playing'); setPlayingUI(true); setPlayIcon(true); renderFavoritesList(); renderAllList(); renderWorldList(); });
 els.player.addEventListener('pause', () => { cancelListeningSession(); allowScreenOff(); setMediaPlaybackState('paused'); setPlayingUI(false); setStatus('На пауза'); setPlayIcon(false); renderFavoritesList(); renderAllList(); renderWorldList(); });
 els.player.addEventListener('waiting', () => { setPlayingUI(false); setStatus('Свързване…'); });
 els.player.addEventListener('error', () => { cancelListeningSession(); allowScreenOff(); setPlayingUI(false); setStatus('Грешка при свързване'); });
