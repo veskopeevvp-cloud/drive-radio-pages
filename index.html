@@ -1881,6 +1881,41 @@ function reportValidListen(station) {
   }).catch(() => {});
 }
 
+// ---------- Lock screen / car display (Media Session) ----------
+// Without this the lock screen showed the page title and 10-second seek
+// buttons. Now it shows the station (and song, when we have it), and the
+// buttons - including a car's steering-wheel buttons over Bluetooth -
+// switch stations.
+function updateMediaSession(song, artUrl) {
+  if (!('mediaSession' in navigator) || !currentStation) return;
+  const art = artUrl || logoSrcFor(currentStation);
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: song || currentStation.name,
+      artist: song ? currentStation.name : 'Drive Radio',
+      album: 'Drive Radio',
+      artwork: art ? [{ src: new URL(art, location.href).href, sizes: '512x512' }] : [],
+    });
+  } catch (_) {}
+}
+
+function setMediaPlaybackState(state) {
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = state;
+}
+
+if ('mediaSession' in navigator) {
+  const setAction = (action, handler) => {
+    try { navigator.mediaSession.setActionHandler(action, handler); } catch (_) {}
+  };
+  setAction('play', () => { if (els.player.paused) togglePlayPause(); });
+  setAction('pause', () => els.player.pause());
+  setAction('previoustrack', () => stepStation(-1));
+  setAction('nexttrack', () => stepStation(1));
+  setAction('seekbackward', null);
+  setAction('seekforward', null);
+  setAction('seekto', null);
+}
+
 // ---------- Keep the screen on while playing (phones/tablets) ----------
 // Same idea as the keep-awake option in the app: a phone on a car mount
 // shouldn't go dark mid-drive. Skipped on desktops (mouse/trackpad).
@@ -1994,8 +2029,8 @@ function stepStation(delta) {
 els.heroPlayBtn.addEventListener('click', togglePlayPause);
 els.heroPrevBtn.addEventListener('click', () => stepStation(-1));
 els.heroNextBtn.addEventListener('click', () => stepStation(1));
-els.player.addEventListener('playing', () => { updateListeningSession(); keepScreenOn(); setPlayingUI(true); setPlayIcon(true); renderFavoritesList(); renderAllList(); renderWorldList(); });
-els.player.addEventListener('pause', () => { cancelListeningSession(); allowScreenOff(); setPlayingUI(false); setStatus('На пауза'); setPlayIcon(false); renderFavoritesList(); renderAllList(); renderWorldList(); });
+els.player.addEventListener('playing', () => { updateListeningSession(); keepScreenOn(); setMediaPlaybackState('playing'); setPlayingUI(true); setPlayIcon(true); renderFavoritesList(); renderAllList(); renderWorldList(); });
+els.player.addEventListener('pause', () => { cancelListeningSession(); allowScreenOff(); setMediaPlaybackState('paused'); setPlayingUI(false); setStatus('На пауза'); setPlayIcon(false); renderFavoritesList(); renderAllList(); renderWorldList(); });
 els.player.addEventListener('waiting', () => { setPlayingUI(false); setStatus('Свързване…'); });
 els.player.addEventListener('error', () => { cancelListeningSession(); allowScreenOff(); setPlayingUI(false); setStatus('Грешка при свързване'); });
 
@@ -2069,6 +2104,7 @@ async function fetchAndShowNowPlayingSong() {
     } else {
       resetHeroArtToStationLogo();
     }
+    updateMediaSession(data.song || '', data.artUrl || null);
 
     // Records this listening session's own plays to history, same as the
     // app does natively - this poll is the only place a web session ever
@@ -2091,6 +2127,7 @@ async function fetchAndShowNowPlayingSong() {
     currentSong = '';
     updateMusicButton();
     resetHeroArtToStationLogo();
+    updateMediaSession('', null);
   }
 }
 
@@ -2110,6 +2147,7 @@ function stopNowPlayingPolling() {
   currentSong = '';
   updateMusicButton();
   resetHeroArtToStationLogo();
+  updateMediaSession('', null);
 }
 
 function setPlayIcon(playing) {
@@ -2146,6 +2184,7 @@ function updateNowPlaying() {
     els.heroLogo.style.display = 'none';
     els.heroLogoFallback.style.display = 'flex';
   }
+  updateMediaSession('', null);
 }
 
 // ---------- Rendering ----------
