@@ -939,6 +939,22 @@
     font-size: 0.8em;
     padding: 24px 0 8px;
   }
+  /* Phone in landscape: the desktop header (logo with the clock stacked
+     under it, plus the email) took about a third of the height, leaving
+     room for two stations. One compact row instead, clock beside the logo. */
+  @media (max-height: 500px) and (orientation: landscape) {
+    :root { --header-h: 56px; }
+    header { padding: 6px 20px; gap: 12px; }
+    .brand { flex-direction: row; align-items: center; gap: 14px; }
+    header .logo { width: 32px; height: 32px; }
+    header h1 { font-size: 1.05em; }
+    .drclock { flex-direction: row; gap: 10px; padding: 4px 10px; }
+    .drclock-time { font-size: 16px; }
+    #userEmail { display: none; }
+    header .user img { width: 26px; height: 26px; }
+    #signOutBtn { padding: 6px 12px !important; }
+    main { padding-top: 12px; padding-bottom: 12px; }
+  }
 </style>
 </head>
 <body>
