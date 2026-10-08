@@ -1431,6 +1431,7 @@ onAuthStateChanged(auth, async (user) => {
       const lastStation = lastId ? curatedById.get(lastId) : null;
       if (lastStation) presetStation(lastStation);
     }
+    await presetLastStationFromLocal();
   } else {
     // Free tier: favorites never touch Firestore - purely local to this
     // browser, per the agreed Free/Premium split (see project memory
@@ -1439,6 +1440,7 @@ onAuthStateChanged(auth, async (user) => {
     favoriteStations = loadFavoritesLocal();
     renderFavoritesList();
     if (activeTab === 'all') renderAllList();
+    await presetLastStationFromLocal();
   }
 });
 
@@ -1977,7 +1979,27 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && !els.player.paused) keepScreenOn();
 });
 
+// Last played curated station, remembered in this browser for everyone
+// (free included), so reopening the page shows it ready for one tap on
+// Play. Browsers never allow autoplay, so ready-to-tap is the best possible.
+const LAST_STATION_LOCAL_KEY = 'driveradio_last_station';
+
+function rememberLastStationLocally(station) {
+  if (station.source !== 'curated') return;
+  try { localStorage.setItem(LAST_STATION_LOCAL_KEY, station.id); } catch (_) {}
+}
+
+async function presetLastStationFromLocal() {
+  await stationsReady;
+  if (currentStation) return;
+  let id = null;
+  try { id = localStorage.getItem(LAST_STATION_LOCAL_KEY); } catch (_) {}
+  const station = id ? curatedById.get(id) : null;
+  if (station) presetStation(station);
+}
+
 function playStation(station) {
+  rememberLastStationLocally(station);
   keepScreenOn();
   cancelListeningSession();
   currentStation = station;
