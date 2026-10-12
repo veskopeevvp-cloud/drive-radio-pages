@@ -2425,7 +2425,10 @@ let allCountryFilter = null;
 function curatedCountries() {
   const counts = new Map();
   curatedStations.forEach(s => counts.set(s.country, (counts.get(s.country) || 0) + 1));
-  return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([code]) => code);
+  // Bulgaria, the UK and Greece lead (Vesko's order); the rest follow by station count.
+  const lead = ['BG', 'GB', 'GR'];
+  const rank = code => { const i = lead.indexOf(code); return i === -1 ? lead.length : i; };
+  return [...counts.entries()].sort((a, b) => rank(a[0]) - rank(b[0]) || b[1] - a[1]).map(([code]) => code);
 }
 
 function initAllCountryChips() {
@@ -2517,7 +2520,7 @@ function flagImgHTML(code, sizePx = 16) {
 }
 
 const RB_BASE = 'https://all.api.radio-browser.info/json';
-const BASE_QUICK_COUNTRIES = ['BG', 'GR', 'RO', 'TR', 'IT', 'DE', 'GB', 'US'];
+const BASE_QUICK_COUNTRIES = ['BG', 'GB', 'GR', 'RO', 'TR', 'IT', 'DE', 'US'];
 const GENRES = ['rock', 'pop', 'news', 'jazz', 'talk', 'dance'];
 
 function detectedCountry() {
