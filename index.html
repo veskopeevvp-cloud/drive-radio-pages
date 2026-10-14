@@ -74,6 +74,9 @@
   }
   .get-app:hover, .get-app:focus-visible { background: rgba(255,140,26,0.12); }
   .get-app > svg { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; }
+  /* Link back to the marketing site: quieter than the download button, which stays the main call to action. */
+  .get-app.site-link { border-color: var(--border); color: var(--text-dim); }
+  .get-app.site-link:hover, .get-app.site-link:focus-visible { border-color: var(--orange-dim); color: var(--orange); }
   .get-app-qr {
     display: none;
     position: absolute; top: calc(100% + 10px); right: 0;
@@ -87,7 +90,11 @@
   @media (hover: hover) and (min-width: 861px) {
     .get-app:hover .get-app-qr, .get-app:focus-visible .get-app-qr { display: block; }
   }
-  @media (max-width: 560px) { .get-app-label { display: none; } .get-app { padding: 8px; } }
+  @media (max-width: 560px) {
+    .get-app-label { display: none; } .get-app { padding: 8px; }
+    /* Two round buttons now sit in the header (site + download); tighter spacing keeps a signed-in header inside a 360px phone. */
+    header { padding-left: 16px; padding-right: 16px; gap: 10px; }
+  }
 
   /* Casio-style clock + IP-based weather, mirroring the mobile app's
      landscape clock/weather widget (DSEG 7-segment font, orange temp).
@@ -993,6 +1000,10 @@
   </div>
   </div>
   <div class="spacer"></div>
+  <a class="get-app site-link" href="https://driveradio.app" title="Към сайта на Drive Radio" aria-label="Към сайта на Drive Radio">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+    <span class="get-app-label">Към сайта</span>
+  </a>
   <a class="get-app" href="https://play.google.com/store/apps/details?id=bg.driveradio.app" target="_blank" rel="noopener" title="Свали приложението от Google Play" aria-label="Свали приложението Drive Radio от Google Play">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 1.01 7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>
     <span class="get-app-label">Свали приложението</span>
