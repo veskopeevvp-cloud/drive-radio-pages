@@ -142,6 +142,10 @@
     padding: 0 20px;
   }
   #loginScreen p { color: var(--text-dim); margin-bottom: 28px; line-height: 1.5; }
+  /* Rights-holder notice, visible to everyone before signing in; the footer copy only shows once signed in. */
+  .login-rights, footer .rights-notice { color: var(--text-dim); font-size: 0.75rem; line-height: 1.5; }
+  .login-rights { margin-top: 36px; text-align: center; opacity: 0.85; }
+  .login-rights a, footer .rights-notice a { color: inherit; text-decoration: underline; }
   .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 10px;
     width: 100%;
@@ -1027,6 +1031,7 @@
   </form>
   <div id="loginError"></div>
   <div class="auth-toggle" id="authToggle">Нямаш акаунт? <a href="#" id="authToggleLink">Регистрирай се</a></div>
+  <div class="login-rights">Имената и логата на радиостанциите принадлежат на съответните им правоносители. Drive Radio е независимо приложение и не е официално свързано с радиостанциите, освен ако не е посочено друго. За въпроси относно съдържание, права или искания за премахване: <a href="mailto:info.driveradio@gmail.com">info.driveradio@gmail.com</a></div>
 </div>
 
 <main id="app">
@@ -1101,6 +1106,7 @@
 
       <footer>
         Drive Radio &middot; <a href="https://driveradio.app">За Drive Radio</a> &middot; <a href="privacy-policy.html">Политика за поверителност</a>
+        <br><span class="rights-notice">Имената и логата на радиостанциите принадлежат на съответните им правоносители. Drive Radio е независимо приложение и не е официално свързано с радиостанциите, освен ако не е посочено друго. За въпроси относно съдържание, права или искания за премахване: <a href="mailto:info.driveradio@gmail.com">info.driveradio@gmail.com</a></span>
       </footer>
     </div>
   </div>
