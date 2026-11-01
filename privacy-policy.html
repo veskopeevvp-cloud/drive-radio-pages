@@ -1,77 +1,143 @@
 <!DOCTYPE html>
 <html lang="bg">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Политика за поверителност — Drive Radio</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Политика за поверителност / Privacy Policy — Drive Radio</title>
 <style>
-  body {
-    font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    max-width: 760px;
-    margin: 0 auto;
-    padding: 32px 20px 80px;
-    background: #0a0a0a;
-    color: #e8e8e8;
-    line-height: 1.6;
-  }
+  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; max-width: 760px; margin: 0 auto; padding: 32px 20px 80px; background: #0a0a0a; color: #e8e8e8; line-height: 1.6; }
   h1 { color: #ff8c1a; font-size: 1.8em; }
   h2 { color: #ff8c1a; font-size: 1.25em; margin-top: 2em; }
   a { color: #ffb066; }
-  .updated { color: #999; font-size: 0.9em; margin-bottom: 2em; }
+  .updated { color: #999; font-size: 0.9em; margin-bottom: 1.2em; }
   ul { padding-left: 1.3em; }
   li { margin-bottom: 0.5em; }
+  .lang { margin-bottom: 2em; }
   .contact { background: #151515; border: 1px solid #333; border-radius: 10px; padding: 16px 20px; margin-top: 2em; }
+  hr { border: 0; border-top: 1px solid #2a2a2a; margin: 3em 0; }
 </style>
 </head>
 <body>
 
+<p class="lang"><a href="#bg">Български</a> · <a href="#en">English</a></p>
+
+<section id="bg">
 <h1>Политика за поверителност — Drive Radio</h1>
-<p class="updated">Последна актуализация: 12 юли 2026 г.</p>
+<p class="updated">Последна актуализация: 1 ноември 2026 г.</p>
 
-<p>Drive Radio ("приложението", "ние") зачита поверителността на своите потребители. Този документ обяснява какви данни събираме, как ги използваме и как можете да поискате тяхното изтриване.</p>
+<p>Drive Radio („приложението“, „ние“) е плейър за аудио потоци, които добавяш сам, и автоматизация, която ги стартира, когато телефонът се свърже с колата. Приложението не съдържа радиостанции, музика или подкасти: станциите се търсят в публичната директория Radio Browser или ги добавяш сам. Този документ обяснява какви данни обработваме и защо.</p>
 
-<h2>Какви данни събираме</h2>
+<h2>Кой сме</h2>
+<p>Drive Radio се разработва от независим разработчик. Контакт за въпроси за поверителността и за изтриване на данни: <a href="mailto:info.driveradio@gmail.com">info.driveradio@gmail.com</a>.</p>
+
+<h2>Какво остава само на телефона ти</h2>
 <ul>
-  <li><strong>Имейл адрес</strong> — само ако изберете да влезете в акаунт (чрез Google вход или имейл/парола), за да синхронизираме статуса ви на Premium абонамент между устройства.</li>
-  <li><strong>Статус на абонамент (Premium/безплатен)</strong> — свързан с вашия акаунт, съхраняван в Firebase (Google Cloud Firestore).</li>
+  <li>Станциите, които добавяш, адресите на потоците им, любимите и плейлистите (когато не си влязъл в профил).</li>
+  <li>Настройките на еквалайзера, езика, Bluetooth устройствата и настройките на автоматизацията към тях.</li>
+  <li>Записите от видеорегистратора (видео, звук, скорост, час и място) и техните метаданни. <strong>Те не се качват никъде.</strong></li>
 </ul>
 
-<h2>Данни, които НЕ напускат телефона ви</h2>
-<p>Следната информация се съхранява само локално на вашето устройство и никога не се изпраща към сървър:</p>
+<h2>Какви данни обработваме</h2>
 <ul>
-  <li>Любими радиостанции</li>
-  <li>Настройки на еквалайзера (включително собствени пресети)</li>
-  <li>Имена на сдвоени Bluetooth устройства и настройките за автоматизация към тях (кога да стартира радиото, дали да буди екрана и т.н.)</li>
-  <li>Избран език на приложението</li>
+  <li><strong>Профил (по избор).</strong> Ако влезеш (с Google или имейл и парола), обработваме имейл адреса и идентификатор на профила чрез Firebase Authentication. Влизането не е задължително за слушане.</li>
+  <li><strong>Статус на абонамент.</strong> Покупките се обработват от Google Play. Ние получаваме потвърждение за покупка (токен) и записваме дали имаш Premium. Не получаваме и не съхраняваме данни за платежна карта.</li>
+  <li><strong>Синхронизирани данни (ако си влязъл).</strong> Списък с любимите ти станции (имена и адреси на потоци, които си добавил), последната слушана станция и, за Premium, историята на слушането (имена на песни и изпълнители, показани от потока). Съхраняват се в Firebase Firestore на Google, достъпни само от твоя профил.</li>
+  <li><strong>Доклади за грешки.</strong> Firebase Crashlytics получава технически данни при сривове (модел на устройството, версия на системата и приложението, проследяване на грешката).</li>
+  <li><strong>Анонимни броячи.</strong> Броим колко пъти са се случили определени действия (например „довършена е разходката“, „добавена е станция“), събрани по дни. Към тях не се записват идентификатор на човек или устройство, адреси на потоци или имена на станции. Записват се само версията на приложението и, при отваряне на браузъра, държавата, избрана от теб в него.</li>
+  <li><strong>Проверка на устройството.</strong> Firebase App Check (Play Integrity) защитава сървърните ни функции от злоупотреби.</li>
+  <li><strong>Песни и обложки.</strong> Когато потокът съобщи изпълнител и заглавие, приложението изпраща тези два текста към търсачката на Apple (iTunes Search), за да намери обложка. Ако натиснеш „отвори в Spotify“, текстът минава през наша сървърна функция, която търси песента в Spotify. Не изпращаме идентификатор на теб.</li>
+  <li><strong>Потоците, които добавяш.</strong> Приложението се свързва директно със сървъра на потока, за да го пусне, и този сървър вижда IP адреса ти, както при всеки плейър или браузър.</li>
+  <li><strong>Търсене на станции.</strong> Когато търсиш по име или отвориш списъка с популярни станции, приложението изпраща написания текст и кода на избраната държава до публичната директория Radio Browser (radio-browser.info). Нейните сървъри виждат IP адреса ти, както всеки сайт. Не изпращаме идентификатор на теб. Логата на станциите се зареждат от адреси, посочени в директорията.</li>
+  <li><strong>Времето на екрана за кола.</strong> За да покаже температура и време, приложението определя приблизително къде се намираш по IP адреса ти чрез услугата ip-api.com и изпраща тези приблизителни координати на Open-Meteo (open-meteo.com), които връщат времето. Не използваме GPS за това и не изпращаме идентификатор на теб. Тези услуги виждат IP адреса ти, както всеки сайт. Заявката към ip-api.com не е шифрована.</li>
+  <li><strong>Вграденият браузър.</strong> Показва сайтовете, които посетиш, за да уловим адрес на поток. Не записваме историята ти на сърфиране. Сайтовете могат да използват свои бисквитки.</li>
 </ul>
 
-<h2>Разрешение за Bluetooth</h2>
-<p>Приложението изисква достъп до Bluetooth единствено за да засича кога свързвате/разкачвате устройство (напр. колата или слушалки), за да стартира или спре радиото автоматично. Имената на устройствата се четат и обработват само локално на телефона ви — никога не се предават към нас или трета страна.</p>
-
-<h2>Плащания и абонаменти</h2>
-<p>Абонаментите (Premium) се обработват изцяло през Google Play Billing. Drive Radio няма достъп до и не съхранява данни за вашата платежна карта — това се управлява изцяло от Google.</p>
-
-<h2>Трети страни, които използваме</h2>
+<h2>Разрешения</h2>
 <ul>
-  <li><strong>Firebase Authentication</strong> (Google) — за вход в акаунт</li>
-  <li><strong>Firebase Firestore</strong> (Google) — за съхранение на статус на абонамент</li>
-  <li><strong>Google Play Billing</strong> — за обработка на плащания</li>
+  <li><strong>Bluetooth</strong> — за да засичаме кога се свързваш с колата или слушалките.</li>
+  <li><strong>Известия</strong> — за контролите на плейъра и за известията при автоматичен старт.</li>
+  <li><strong>Местоположение, камера и микрофон</strong> — само за видеорегистратора (Premium): записва видео и звук и записва върху видеото скорост, час и място. Данните остават на телефона.</li>
+  <li><strong>Показване над други приложения</strong> — за плаващите контроли (по избор).</li>
+  <li><strong>Изключване на оптимизацията на батерията</strong> и <strong>пълноекранно известие</strong> — за да може автоматичният старт да работи с изключен екран.</li>
 </ul>
-<p>Не използваме рекламни SDK-та и не проследяваме потребителите за рекламни цели.</p>
 
-<h2>Изтриване на данни</h2>
-<p>Можете да поискате пълно изтриване на акаунта си и свързаните с него данни по всяко време, като ни пишете на имейла по-долу. Заявката се обработва в рамките на 30 дни.</p>
+<h2>Реклами и продажба на данни</h2>
+<p>Не показваме реклами, не използваме рекламни идентификатори и не продаваме данни.</p>
+
+<h2>Трети страни</h2>
+<p>Google (Firebase Authentication, Firestore, Cloud Functions, Crashlytics, App Check, Google Play Billing), Apple (търсене на обложки), Spotify (търсене на песен по твое желание), Radio Browser (директория със станции), ip-api.com и Open-Meteo (времето), и сървърите на потоците, които самият ти избираш.</p>
+
+<h2 id="delete">Изтриване на данни и права</h2>
+<p>Можеш да изтриеш профила и свързаните с него данни по всяко време от приложението: <em>Настройки → Профил → Изтрий профила</em>. Изтриването премахва профила и синхронизираните данни. Ако имаш абонамент, откажи го в Google Play, защото то не се отменя автоматично. Данните, които са само на телефона, се изтриват, като премахнеш приложението или изчистиш данните му. Можеш да поискаш достъп, поправяне или изтриване и по имейл. Ако си в Европейския съюз, имаш и правото да подадеш жалба до надзорен орган.</p>
 
 <h2>Деца</h2>
 <p>Drive Radio не е насочено към деца под 13 години и съзнателно не събира данни от тях.</p>
 
-<h2>Промени в политиката</h2>
-<p>Ако тази политика бъде променена, датата на актуализация в началото на страницата ще бъде обновена.</p>
+<h2>Промени</h2>
+<p>Ако политиката се промени, ще обновим датата в началото на страницата.</p>
 
-<div class="contact">
-  <strong>Контакт:</strong><br>
-  За въпроси относно поверителността или за заявка за изтриване на данни: <a href="mailto:info.driveradio@gmail.com">info.driveradio@gmail.com</a>
-</div>
+<div class="contact">Контакт: <a href="mailto:info.driveradio@gmail.com">info.driveradio@gmail.com</a></div>
+</section>
+
+<hr>
+
+<section id="en">
+<h1>Privacy Policy — Drive Radio</h1>
+<p class="updated">Last updated: 1 November 2026</p>
+
+<p>Drive Radio ("the app", "we") is a player for audio streams that you add yourself, with an automation that starts them when your phone connects to the car. The app does not contain radio stations, music or podcasts: stations are searched in the public directory Radio Browser or added by you. This document explains which data we process and why.</p>
+
+<h2>Who we are</h2>
+<p>Drive Radio is developed by an independent developer. For privacy questions and data deletion: <a href="mailto:info.driveradio@gmail.com">info.driveradio@gmail.com</a>.</p>
+
+<h2>What stays only on your phone</h2>
+<ul>
+  <li>The stations you add, their stream addresses, favorites and playlists (when you are not signed in).</li>
+  <li>Equalizer settings, language, Bluetooth devices and the automation settings for them.</li>
+  <li>Dash cam recordings (video, audio, speed, time and place) and their metadata. <strong>They are never uploaded.</strong></li>
+</ul>
+
+<h2>What data we process</h2>
+<ul>
+  <li><strong>Account (optional).</strong> If you sign in (with Google or email and password) we process your email address and an account identifier through Firebase Authentication. Signing in is not required to listen.</li>
+  <li><strong>Subscription status.</strong> Purchases are processed by Google Play. We receive a purchase confirmation (token) and record whether you have Premium. We never receive or store payment card details.</li>
+  <li><strong>Synced data (if signed in).</strong> Your list of favorite stations (names and stream addresses you added), the last station you listened to and, for Premium, your listening history (song titles and artists shown by the stream). Stored in Google's Firebase Firestore, readable only from your account.</li>
+  <li><strong>Crash reports.</strong> Firebase Crashlytics receives technical data when the app crashes (device model, system and app version, the error trace).</li>
+  <li><strong>Anonymous counters.</strong> We count how many times certain actions happened (for example "the walk-through was finished", "a station was added"), grouped by day. No person or device identifier, stream address or station name is attached. Only the app version and, when the browser is opened, the country you chose in it are recorded.</li>
+  <li><strong>Device check.</strong> Firebase App Check (Play Integrity) protects our server functions from abuse.</li>
+  <li><strong>Songs and covers.</strong> When a stream reports an artist and title, the app sends those two texts to Apple's iTunes Search to find a cover. If you tap "open in Spotify", the text goes through one of our server functions that looks the song up in Spotify. We do not send an identifier of you.</li>
+  <li><strong>Streams you add.</strong> The app connects directly to the stream's server to play it, and that server sees your IP address, as with any player or browser.</li>
+  <li><strong>Station search.</strong> When you search by name or open the list of popular stations, the app sends the text you typed and the code of the chosen country to the public directory Radio Browser (radio-browser.info). Its servers see your IP address, as any website does. We do not send an identifier of you. Station logos are loaded from addresses given in the directory.</li>
+  <li><strong>Weather on the car screen.</strong> To show the temperature and weather, the app works out roughly where you are from your IP address using the service ip-api.com and sends these approximate coordinates to Open-Meteo (open-meteo.com), which returns the weather. We do not use GPS for this and do not send an identifier of you. These services see your IP address, as any website does. The request to ip-api.com is not encrypted.</li>
+  <li><strong>The built-in browser.</strong> It shows the sites you visit so that a stream address can be caught. We do not record your browsing history. Sites may use their own cookies.</li>
+</ul>
+
+<h2>Permissions</h2>
+<ul>
+  <li><strong>Bluetooth</strong> — to detect when you connect to the car or headphones.</li>
+  <li><strong>Notifications</strong> — for player controls and auto-start notices.</li>
+  <li><strong>Location, camera and microphone</strong> — only for the dash cam (Premium): it records video and audio and burns speed, time and place into the video. The data stays on your phone.</li>
+  <li><strong>Display over other apps</strong> — for the floating controls (optional).</li>
+  <li><strong>Battery optimization exemption</strong> and <strong>full-screen notification</strong> — so auto-start can work with the screen off.</li>
+</ul>
+
+<h2>Ads and selling data</h2>
+<p>We show no ads, use no advertising identifiers and do not sell data.</p>
+
+<h2>Third parties</h2>
+<p>Google (Firebase Authentication, Firestore, Cloud Functions, Crashlytics, App Check, Google Play Billing), Apple (cover search), Spotify (song lookup, only if you ask), Radio Browser (station directory), ip-api.com and Open-Meteo (weather), and the servers of the streams you choose.</p>
+
+<h2 id="delete-en">Deleting your data and your rights</h2>
+<p>You can delete your account and its data at any time from the app: <em>Settings → Account → Delete account</em>. This removes the account and the synced data. If you have a subscription, cancel it in Google Play, because it is not cancelled automatically. Data that exists only on your phone is deleted by uninstalling the app or clearing its data. You can also ask for access, correction or deletion by email. If you are in the European Union you also have the right to complain to a supervisory authority.</p>
+
+<h2>Children</h2>
+<p>Drive Radio is not directed at children under 13 and does not knowingly collect their data.</p>
+
+<h2>Changes</h2>
+<p>If this policy changes, we will update the date at the top of this page.</p>
+
+<div class="contact">Contact: <a href="mailto:info.driveradio@gmail.com">info.driveradio@gmail.com</a></div>
+</section>
 
 </body>
 </html>
