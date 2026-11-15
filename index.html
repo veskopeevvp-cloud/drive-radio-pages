@@ -2140,7 +2140,7 @@ function playStation(station) {
   // straight away instead of failing first.
   if (/^http:/i.test(station.url) && location.protocol === 'https:') {
     const known = loadSecureMap()[station.url];
-    if (known) station = { ...station, url: known, secureTried: true, originalUrl: station.url };
+    if (known) station = { ...station, url: known, originalUrl: station.url, secureNoted: true };
   }
   rememberLastStationLocally(station);
   keepScreenOn();
@@ -2222,24 +2222,43 @@ els.player.addEventListener('error', async () => {
   // A secure (https) page may not load an http stream. Many stations also
   // publish an https stream, so look for one in the catalog before giving up.
   const station = currentStation;
-  const insecure = station && /^http:/i.test(station.url) && location.protocol === 'https:';
-  if (insecure && !station.secureTried) {
-    setStatus('Търся защитена версия на станцията…');
-    const secureUrl = await findSecureStream(station);
-    if (currentStation !== station) return; // the listener picked something else meanwhile
-    if (secureUrl) {
+  const orig = station ? (station.originalUrl || station.url) : '';
+  const httpOrigin = /^http:/i.test(orig) && location.protocol === 'https:';
+  if (httpOrigin) {
+    // Candidates are tried one by one on the real player (not a hidden test
+    // element): iPhone Safari loads nothing for a muted test player, so a
+    // probe there always failed.
+    let queue = station.secureQueue;
+    if (!queue) {
+      // First failure: the plain http address, or a remembered https
+      // version that stopped working - forget it and search again.
+      if (station.originalUrl) {
+        const map = loadSecureMap(); delete map[orig]; saveSecureMap(map);
+      }
+      setStatus('Търся защитена версия на станцията…');
+      queue = (await findSecureCandidates({ ...station, url: orig })).filter(u => u !== station.url);
+      if (currentStation !== station) return; // the listener picked something else meanwhile
+    }
+    if (queue.length) {
       // Same station (id, name, logo) so favorites and the star still match;
-      // only this session plays the https stream - the saved favorite and
+      // only this browser plays the https stream - the saved favorite and
       // the phone app keep their own address.
-      playStation({ ...station, url: secureUrl, secureTried: true, originalUrl: station.url });
-      showSecureNote();
+      playStation({ ...station, url: queue[0], secureQueue: queue.slice(1), originalUrl: orig, secureNoted: false });
       return;
     }
-    station.secureTried = true;
   }
-  setStatus(insecure
+  setPlayIcon(false);
+  setStatus(httpOrigin
     ? 'Тази станция е със стар адрес (http) и браузърът не я пуска. В приложението Drive Radio работи.'
     : 'Станцията не отговаря. Опитай пак по-късно или избери друга.');
+});
+// A found https version is remembered once it actually plays.
+els.player.addEventListener('playing', () => {
+  const s = currentStation;
+  if (!s || !s.originalUrl || s.secureNoted) return;
+  s.secureNoted = true;
+  const map = loadSecureMap(); map[s.originalUrl] = s.url; saveSecureMap(map);
+  showSecureNote();
 });
 
 // ---------- Secure (https) version of an http station ----------
@@ -2255,19 +2274,17 @@ function baseStationName(name) {
   return (name || '').toLowerCase().replace(/\([^)]*\)|\[[^\]]*\]/g, '').replace(/[^\p{L}\p{N}]+/gu, '');
 }
 
-async function findSecureStream(station) {
-  const map = loadSecureMap();
-  if (map[station.url]) return map[station.url];
-
+// https addresses worth trying for an http station, most likely first.
+async function findSecureCandidates(station) {
   const candidates = [];
   const add = u => { if (/^https:/i.test(u || '') && !candidates.includes(u)) candidates.push(u); };
   // 1. The same address over https (many servers answer on both).
   add(station.url.replace(/^http:/i, 'https:'));
   // 2. Hosts known to serve the same streams over https under another name
-  //    (Bulgarian metacast.eu streams = play.global.audio).
+  //    (Bulgarian metacast.eu and radioreklama.bg streams = play.global.audio).
   try {
     const u = new URL(station.url);
-    if (/(^|\.)metacast\.eu$/i.test(u.hostname)) add('https://play.global.audio' + u.pathname);
+    if (/(^|\.)(metacast\.eu|radioreklama\.bg)$/i.test(u.hostname)) add('https://play.global.audio' + u.pathname);
   } catch (_) {}
   // 3. The same radio in the catalog with an https stream.
   const wanted = baseStationName(station.name);
@@ -2281,14 +2298,7 @@ async function findSecureStream(station) {
     } catch (_) {}
   }
 
-  for (const url of candidates.slice(0, 4)) {
-    if (await probeStream(url)) {
-      map[station.url] = url;
-      saveSecureMap(map);
-      return url;
-    }
-  }
-  return null;
+  return candidates.slice(0, 5);
 }
 
 let secureNoteTimer = null;
@@ -3105,7 +3115,10 @@ function probeStream(url) {
       try { probe.load(); } catch (_) {}
       resolve(ok);
     };
-    const timer = setTimeout(() => finish(false), 12000);
+    // No answer either way (iPhone Safari loads nothing for a muted test
+    // player): give it the benefit of the doubt. A website link still fails
+    // fast with an error on browsers that do load it.
+    const timer = setTimeout(() => finish(true), 12000);
     probe.addEventListener('canplay', () => finish(true));
     probe.addEventListener('loadedmetadata', () => finish(true));
     probe.addEventListener('error', () => finish(false));
