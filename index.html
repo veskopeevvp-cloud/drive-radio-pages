@@ -2209,6 +2209,26 @@ function stepStation(delta) {
   const currentPos = queue.findIndex(s => s.id === currentStation.id);
   const nextPos = currentPos === -1 ? 0 : (currentPos + delta + queue.length) % queue.length;
   playStation(queue[nextPos]);
+  revealPlayingCard();
+}
+
+// Next/previous moves the highlight; scroll the station list (only the list,
+// never the page) just enough that the highlighted row stays in view.
+function revealPlayingCard() {
+  const col = document.querySelector('.station-list-col');
+  if (!col) return;
+  const card = [...col.querySelectorAll('.station-card.playing')].find(c => c.offsetParent);
+  if (!card) return;
+  const box = col.getBoundingClientRect();
+  const row = card.getBoundingClientRect();
+  const sticky = col.querySelector('.sticky-header');
+  const top = box.top + (sticky ? sticky.offsetHeight : 0) + 8;
+  const bottom = Math.min(box.bottom, window.innerHeight) - 8;
+  const behavior = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+  // Layouts where the page itself scrolls instead of the list.
+  if (col.scrollHeight <= col.clientHeight + 1) { card.scrollIntoView({ block: 'nearest', behavior }); return; }
+  if (row.top < top) col.scrollBy({ top: row.top - top, behavior });
+  else if (row.bottom > bottom) col.scrollBy({ top: row.bottom - bottom, behavior });
 }
 
 els.heroPlayBtn.addEventListener('click', togglePlayPause);
