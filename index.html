@@ -3,6 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+  // "player.driveradio.app." (trailing dot, e.g. copied from the end of a
+  // sentence) opens the page, but Firebase sign-in rejects that host name.
+  if (location.hostname.endsWith('.')) {
+    location.replace(location.protocol + '//' + location.hostname.replace(/\.+$/, '') +
+      (location.port ? ':' + location.port : '') + location.pathname + location.search + location.hash);
+  }
+</script>
 <title>Drive Radio</title>
 <meta name="description" content="Уеб плейърът на Drive Radio: намери радиостанция по име или държава, добави я в любими и слушай от компютъра или телефона. С Premium любимите са общи с приложението.">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-v2.png">
@@ -884,6 +892,14 @@
 
   /* "Адрес" tab: add a station by its stream address */
   .address-panel { padding: 4px 2px 20px; max-width: 34em; }
+  .secure-note {
+    position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 12px);
+    background: #1c1e22; color: var(--text); border: 1px solid var(--border);
+    padding: 10px 18px; border-radius: 999px; font-size: 0.9em;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; z-index: 50;
+  }
+  .secure-note.show { opacity: 1; transform: translate(-50%, 0); }
+  @media (prefers-reduced-motion: reduce) { .secure-note { transition: none; } }
   .app-add-hint { color: var(--text-dim); font-size: 0.9em; line-height: 1.55; margin: 18px 2px 8px; max-width: 36em; }
   .address-panel button:disabled { opacity: 0.55; cursor: wait; }
   .address-title { margin: 0 0 6px; font-size: 1em; color: var(--text); }
@@ -2108,6 +2124,12 @@ function presetLastStationFromLocal() {
 }
 
 function playStation(station) {
+  // An http station whose https version was already found plays that
+  // straight away instead of failing first.
+  if (/^http:/i.test(station.url) && location.protocol === 'https:') {
+    const known = loadSecureMap()[station.url];
+    if (known) station = { ...station, url: known, secureTried: true, originalUrl: station.url };
+  }
   rememberLastStationLocally(station);
   keepScreenOn();
   cancelListeningSession();
@@ -2183,15 +2205,95 @@ els.heroNextBtn.addEventListener('click', () => stepStation(1));
 els.player.addEventListener('playing', () => { updateListeningSession(); keepScreenOn(); registerMediaActions(); setMediaPlaybackState('playing'); setPlayingUI(true); setPlayIcon(true); renderFavoritesList(); renderWorldList(); });
 els.player.addEventListener('pause', () => { cancelListeningSession(); allowScreenOff(); setMediaPlaybackState('paused'); setPlayingUI(false); setStatus('На пауза'); setPlayIcon(false); renderFavoritesList(); renderWorldList(); });
 els.player.addEventListener('waiting', () => { setPlayingUI(false); setStatus('Свързване…'); });
-els.player.addEventListener('error', () => {
+els.player.addEventListener('error', async () => {
   cancelListeningSession(); allowScreenOff(); setPlayingUI(false);
-  // A secure (https) page may not load an http stream - the app plays it
-  // fine, so say that instead of a bare "connection error".
-  const insecure = currentStation && /^http:/i.test(currentStation.url) && location.protocol === 'https:';
+  // A secure (https) page may not load an http stream. Many stations also
+  // publish an https stream, so look for one in the catalog before giving up.
+  const station = currentStation;
+  const insecure = station && /^http:/i.test(station.url) && location.protocol === 'https:';
+  if (insecure && !station.secureTried) {
+    setStatus('Търся защитена версия на станцията…');
+    const secureUrl = await findSecureStream(station);
+    if (currentStation !== station) return; // the listener picked something else meanwhile
+    if (secureUrl) {
+      // Same station (id, name, logo) so favorites and the star still match;
+      // only this session plays the https stream - the saved favorite and
+      // the phone app keep their own address.
+      playStation({ ...station, url: secureUrl, secureTried: true, originalUrl: station.url });
+      showSecureNote();
+      return;
+    }
+    station.secureTried = true;
+  }
   setStatus(insecure
     ? 'Тази станция е със стар адрес (http) и браузърът не я пуска. В приложението Drive Radio работи.'
     : 'Станцията не отговаря. Опитай пак по-късно или избери друга.');
 });
+
+// ---------- Secure (https) version of an http station ----------
+const SECURE_MAP_KEY = 'driveradio_secure_streams_v1';
+function loadSecureMap() {
+  try { return JSON.parse(localStorage.getItem(SECURE_MAP_KEY) || '{}') || {}; } catch (_) { return {}; }
+}
+function saveSecureMap(map) {
+  try { localStorage.setItem(SECURE_MAP_KEY, JSON.stringify(map)); } catch (_) {}
+}
+// "Radio 1 Rock (AAC 128)" and "RADIO 1 ROCK" both become "radio1rock".
+function baseStationName(name) {
+  return (name || '').toLowerCase().replace(/\([^)]*\)|\[[^\]]*\]/g, '').replace(/[^\p{L}\p{N}]+/gu, '');
+}
+
+async function findSecureStream(station) {
+  const map = loadSecureMap();
+  if (map[station.url]) return map[station.url];
+
+  const candidates = [];
+  const add = u => { if (/^https:/i.test(u || '') && !candidates.includes(u)) candidates.push(u); };
+  // 1. The same address over https (many servers answer on both).
+  add(station.url.replace(/^http:/i, 'https:'));
+  // 2. Hosts known to serve the same streams over https under another name
+  //    (Bulgarian metacast.eu streams = play.global.audio).
+  try {
+    const u = new URL(station.url);
+    if (/(^|\.)metacast\.eu$/i.test(u.hostname)) add('https://play.global.audio' + u.pathname);
+  } catch (_) {}
+  // 3. The same radio in the catalog with an https stream.
+  const wanted = baseStationName(station.name);
+  if (wanted) {
+    try {
+      const found = await rbFetch('/stations/search', {
+        name: station.name.replace(/\([^)]*\)/g, '').trim(),
+        limit: 40, order: 'clickcount', reverse: 'true',
+      });
+      found.filter(s => baseStationName(s.name) === wanted).forEach(s => add(s.url));
+    } catch (_) {}
+  }
+
+  for (const url of candidates.slice(0, 4)) {
+    if (await probeStream(url)) {
+      map[station.url] = url;
+      saveSecureMap(map);
+      return url;
+    }
+  }
+  return null;
+}
+
+let secureNoteTimer = null;
+function showSecureNote() {
+  let note = document.getElementById('secureNote');
+  if (!note) {
+    note = document.createElement('div');
+    note.id = 'secureNote';
+    note.className = 'secure-note';
+    note.setAttribute('role', 'status');
+    document.body.appendChild(note);
+  }
+  note.textContent = 'Пускаме защитената версия на станцията.';
+  note.classList.add('show');
+  clearTimeout(secureNoteTimer);
+  secureNoteTimer = setTimeout(() => note.classList.remove('show'), 5000);
+}
 
 function setStatus(text) {
   els.heroStatus.textContent = text;
