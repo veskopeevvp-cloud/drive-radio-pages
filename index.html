@@ -2298,14 +2298,25 @@ function baseStationName(name) {
 async function findSecureCandidates(station) {
   const candidates = [];
   const add = u => { if (/^https:/i.test(u || '') && !candidates.includes(u)) candidates.push(u); };
-  // 1. The same address over https (many servers answer on both).
-  add(station.url.replace(/^http:/i, 'https:'));
-  // 2. Hosts known to serve the same streams over https under another name
-  //    (Bulgarian metacast.eu and radioreklama.bg streams = play.global.audio).
+  let host = '';
+  // 1. Hosts known to serve the same streams over https under another name
+  //    - metacast.eu and radioreklama.bg streams = play.global.audio
+  //    - Atlantis (193.108.24.x, Radio Fresh, Radio Melody...) = streamer2.atlantis.bg:8443
   try {
     const u = new URL(station.url);
-    if (/(^|\.)(metacast\.eu|radioreklama\.bg)$/i.test(u.hostname)) add('https://play.global.audio' + u.pathname);
+    host = u.hostname;
+    const path = u.pathname;
+    const bare = path.replace(/\.(mp3|ogg|aac|m3u8?)$/i, '');
+    if (/(^|\.)(metacast\.eu|radioreklama\.bg)$/i.test(host)) add('https://play.global.audio' + path);
+    if (/^193\.108\.24\.\d+$|^31\.13\.223\.148$/.test(host)) {
+      add('https://streamer2.atlantis.bg:8443' + path);
+      add('https://streamer2.atlantis.bg:8443' + bare);
+    }
   } catch (_) {}
+  // 2. The same address over https (many servers answer on both). Not for a
+  //    bare IP address - no certificate covers it, and it can hang instead
+  //    of failing.
+  if (!/^\d+\.\d+\.\d+\.\d+$/.test(host)) add(station.url.replace(/^http:/i, 'https:'));
   // 3. The same radio in the catalog with an https stream.
   const wanted = baseStationName(station.name);
   if (wanted) {
