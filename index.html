@@ -157,6 +157,9 @@
   /* Rights-holder notice, visible to everyone before signing in; the footer copy only shows once signed in. */
   .login-rights, footer .rights-notice { color: var(--text-dim); font-size: 0.75rem; line-height: 1.5; }
   .login-rights { margin-top: 36px; text-align: center; opacity: 0.85; }
+  .about-link { margin-top: 14px; text-align: center; color: var(--text-dim); font-size: 0.85em; }
+  .about-link a { color: var(--orange); font-weight: 600; text-decoration: none; }
+  .about-link a:hover { text-decoration: underline; }
   .login-rights a, footer .rights-notice a { color: inherit; text-decoration: underline; }
   .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 10px;
@@ -1112,6 +1115,7 @@
   </form>
   <div id="loginError"></div>
   <div class="auth-toggle" id="authToggle">Нямаш акаунт? <a href="#" id="authToggleLink">Регистрирай се</a></div>
+  <div class="about-link">Какво е Drive Radio? <a href="https://driveradio.app/" target="_blank" rel="noopener">driveradio.app</a></div>
   <div class="login-rights">Имената и логата на радиостанциите принадлежат на съответните им правоносители. Drive Radio е независимо приложение и не е официално свързано с радиостанциите, освен ако не е посочено друго. За въпроси относно съдържание, права или искания за премахване: <a href="mailto:info.driveradio@gmail.com">info.driveradio@gmail.com</a></div>
 </div>
 
@@ -1200,7 +1204,7 @@
       </div>
 
       <footer>
-        <a href="privacy-policy.html">Политика за поверителност</a> &middot; <a href="terms.html">Общи условия</a> &middot; <a href="https://play.google.com/store/apps/details?id=bg.driveradio.app" target="_blank" rel="noopener">Drive Radio за Android</a>
+        <a href="https://driveradio.app/" target="_blank" rel="noopener">За приложението</a> &middot; <a href="privacy-policy.html">Политика за поверителност</a> &middot; <a href="terms.html">Общи условия</a> &middot; <a href="https://play.google.com/store/apps/details?id=bg.driveradio.app" target="_blank" rel="noopener">Drive Radio за Android</a>
         <br><span class="rights-notice">Имената и логата на радиостанциите принадлежат на съответните им правоносители. Drive Radio е независимо приложение и не е официално свързано с радиостанциите, освен ако не е посочено друго. За въпроси относно съдържание, права или искания за премахване: <a href="mailto:info.driveradio@gmail.com">info.driveradio@gmail.com</a></span>
       </footer>
     </div>
