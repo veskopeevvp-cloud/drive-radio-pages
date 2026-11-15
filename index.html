@@ -75,6 +75,13 @@
     color: var(--text-dim);
   }
   header .user img { width: 30px; height: 30px; border-radius: 50%; }
+  /* Link back to the site, left of the e-mail and "Изход" */
+  header .about-top {
+    color: var(--text-dim); font-size: 0.9em; text-decoration: none;
+    white-space: nowrap; margin-right: 18px;
+  }
+  header .about-top:hover, header .about-top:focus-visible { color: var(--orange); }
+  @media (max-width: 560px) { header .about-top { font-size: 0.82em; margin-right: 10px; } }
   .get-app {
     position: relative;
     display: inline-flex; align-items: center; gap: 8px;
@@ -1097,6 +1104,7 @@
   </div>
   </div>
   <div class="spacer"></div>
+  <a class="about-top" href="https://driveradio.app/" target="_blank" rel="noopener">За Drive Radio ↗</a>
   <div class="user" id="userBar" style="display:none;">
     <img id="userPhoto" src="" alt="" style="display:none;">
     <span id="userEmail"></span>
