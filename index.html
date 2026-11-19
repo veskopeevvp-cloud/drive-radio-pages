@@ -771,6 +771,21 @@
     font-size: 0.8em;
     margin: 2px 0 12px;
   }
+  .more-stations-toggle {
+    display: block;
+    width: 100%;
+    margin: 10px 0;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px dashed var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: 0.88em;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .more-stations-toggle:hover { color: var(--orange); border-color: var(--orange); }
 
   /* ---------- Countries panel (full 241-country picker) ---------- */
   .countries-overlay {
@@ -2200,6 +2215,7 @@ function getPlaybackQueue() {
   if (!currentStation) return [];
   if (favoriteStations.some(s => s.id === currentStation.id)) return favoriteStations;
   if (worldResults.some(s => s.id === currentStation.id)) return worldResults;
+  if (worldMore.some(s => s.id === currentStation.id)) return worldMore;
   return favoriteStations;
 }
 
@@ -2711,7 +2727,23 @@ function flagImgHTML(code, sizePx = 16) {
 
 const RB_BASE = 'https://all.api.radio-browser.info/json';
 const BASE_QUICK_COUNTRIES = ['BG', 'GB', 'GR', 'RO', 'TR', 'IT', 'DE', 'US'];
-const GENRES = ['rock', 'pop', 'news', 'jazz', 'talk', 'dance'];
+// Radio Browser tags are typed by whoever added a station, so one genre is
+// spread over many spellings (BG pop-folk: "pop-folk", "pop folk", "chalga").
+// Each chip asks for all of its tags (exact match) and merges the answers.
+const GENRE_GROUPS = [
+  { key: 'pop',       label: 'Поп',      tags: ['pop', 'top 40', 'top40', 'hits', 'pop music', 'adult contemporary'] },
+  { key: 'rock',      label: 'Рок',      tags: ['rock', 'classic rock', 'hard rock', 'alternative', 'alternative rock', 'metal', 'heavy metal', 'indie rock', 'punk'] },
+  { key: 'popfolk',   label: 'Поп-фолк', tags: ['pop-folk', 'pop folk', 'popfolk', 'chalga', 'чалга', 'попфолк', 'поп-фолк'] },
+  { key: 'folk',      label: 'Фолк',     tags: ['folk', 'folklore', 'bulgarian folk', 'traditional', 'народна музика', 'фолклор'] },
+  { key: 'news',      label: 'Новини',   tags: ['news', 'talk', 'news talk', 'information', 'public radio', 'новини'] },
+  { key: 'dance',     label: 'Денс',     tags: ['dance', 'electronic', 'house', 'edm', 'techno', 'trance', 'deep house', 'club'] },
+  { key: 'retro',     label: 'Ретро',    tags: ['oldies', '80s', '90s', '70s', '60s', 'retro', 'classic hits'] },
+  { key: 'jazz',      label: 'Джаз',     tags: ['jazz', 'blues', 'smooth jazz', 'soul', 'funk'] },
+  { key: 'classical', label: 'Класика',  tags: ['classical', 'classical music', 'opera', 'symphonic'] },
+  { key: 'hiphop',    label: 'Хип-хоп',  tags: ['hip hop', 'hip-hop', 'hiphop', 'rap', 'r&b', 'rnb', 'urban'] },
+  { key: 'chill',     label: 'Релакс',   tags: ['chillout', 'chill', 'lounge', 'ambient', 'relax'] },
+];
+const genreByKey = (key) => GENRE_GROUPS.find(g => g.key === key) || null;
 
 // Time zone first: many people run an English browser, but their clock is
 // set to where they live (en-US browser in Sofia should still open on BG).
@@ -2739,7 +2771,18 @@ function quickCountries() {
   return [detected, ...BASE_QUICK_COUNTRIES.filter(c => c !== detected)];
 }
 
+// What the list tidy-up needs about a catalog entry, kept OUT of the station
+// object itself so none of it is ever saved into favorites / cloud sync.
+const rbMeta = new Map(); // station id -> { clicks, logo, https, url }
+
 function rbStationFromJson(j) {
+  const streamUrl = j.url_resolved || j.url || '';
+  rbMeta.set("rb_" + j.stationuuid, {
+    clicks: Number(j.clickcount) || 0,
+    logo: !!(j.favicon && j.favicon.trim()),
+    https: /^https:/i.test(streamUrl),
+    url: streamUrl,
+  });
   return {
     // Same id as the app (radio_browser_service.dart: rb_<uuid>), so a
     // station starred here and on the phone is one favorite.
@@ -2767,7 +2810,127 @@ async function rbFetch(path, params) {
   return json.map(rbStationFromJson);
 }
 
-let worldResults = [];
+// ---------- Tidy-up of catalog lists ----------
+// Radio Browser has the same radio several times ("Radio 1 Rock" x4, "City
+// Radio" x6) and entries nobody can recognise. Shown here: each radio once,
+// the best of its entries, radios with a logo first, the rest folded under
+// "Още станции". Nothing is hidden for good except unreadable names.
+const NAME_STOPWORDS = new Set(['fm', 'online', 'live', 'radio', 'радио', 'bg', 'bulgaria', 'българия',
+  'official', 'stream', 'hd', 'mp3', 'aac', 'ogg', 'opus', 'flac', 'hls', 'kbps', 'web', 'the',
+  'radiyo', 'balgariya',  // "радио", "България" after transliteration
+  'radyo', 'radijo', 'radija', 'raadio']);  // "radio" in Turkish, Slovenian/Serbian, Lithuanian, Estonian
+
+// "(aac)", "(ogg)", "(AAC 128)", "[320 kbps]" - the same radio in another
+// stream format, not another radio.
+const FORMAT_NOTE = /[(\[][^)\]]*\b(aac\+?|ogg|mp3|opus|flac|hls|m3u8?|kbps|\d{2,3}\s?k)\b[^)\]]*[)\]]/gi;
+
+function plainWords(text) {
+  return (text || '').replace(FORMAT_NOTE, ' ').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    .replace(/&/g, ' and ').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+}
+
+// The country being browsed is noise in a name too ("Radio Nova Bulgaria" =
+// "Radio Nova", "Antenne X Deutschland" = "Antenne X") - works for any country.
+function countryStopwords() {
+  const words = new Set();
+  if (activeCountry) words.add(activeCountry.toLowerCase());
+  if (activeCountryInfo && activeCountryInfo.name) plainWords(activeCountryInfo.name).split(' ').forEach(w => w && words.add(w));
+  return words;
+}
+
+// Cyrillic -> Latin, so "Авто Радио" and "Avto Radio" are recognised as one.
+const TRANSLIT = {
+  а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l',
+  м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts', ч: 'ch',
+  ш: 'sh', щ: 'sht', ъ: 'a', ь: 'y', ю: 'yu', я: 'ya', ы: 'y', э: 'e', ё: 'yo', і: 'i', ї: 'yi',
+  є: 'ye', ґ: 'g', ђ: 'dj', ј: 'j', љ: 'lj', њ: 'nj', ћ: 'c', џ: 'dz', ѓ: 'g', ќ: 'k', ѕ: 'dz',
+};
+const toLatin = (text) => text.replace(/[Ѐ-ӿ]/g, c => TRANSLIT[c] ?? c);
+
+// Key for "same radio": tidy words, without stop words, in Latin letters and
+// without spaces ("Nova News" = "NovaNews", "BG Radio" = "RADIO BGRADIO").
+function normStationName(name, extraStop) {
+  // Diacritics are removed after transliteration: NFKD would first split
+  // "й" into "и" + a mark and lose the letter.
+  const plain = toLatin(plainWords(name).normalize('NFC')).normalize('NFKD').replace(/[̀-ͯ]/g, '');
+  const words = plain.split(' ').filter(w => w && !NAME_STOPWORDS.has(w) && !(extraStop && extraStop.has(w)));
+  return (words.join('') || plain.replace(/ /g, ''));
+}
+
+function normStreamUrl(url) {
+  // Only protocol and trailing slash: the rest of the address (path AND
+  // query) can be what tells two different radios on one server apart.
+  return (url || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/[\/;]+$/, '');
+}
+
+// A name saved with a broken text encoding ("��� ...") - can't be recognised
+// by anyone, so it isn't worth a row.
+const unreadableName = (name) => !name || !name.trim() || /�/.test(name);
+
+function curateStations(list) {
+  const clean = list.filter(s => !unreadableName(s.name));
+  const extraStop = countryStopwords();
+  // Union-find over "same tidy name" OR "same stream address".
+  const parent = clean.map((_, i) => i);
+  const root = (i) => (parent[i] === i ? i : (parent[i] = root(parent[i])));
+  const firstByKey = new Map();
+  clean.forEach((s, i) => {
+    const meta = rbMeta.get(s.id) || {};
+    const nameKey = normStationName(s.name, extraStop);
+    const keys = [];
+    if (/[\p{L}\p{N}]/u.test(nameKey)) keys.push('n:' + nameKey);
+    const urlKey = normStreamUrl(meta.url || s.url);
+    if (urlKey) keys.push('u:' + urlKey);
+    keys.forEach(k => {
+      if (firstByKey.has(k)) parent[root(i)] = root(firstByKey.get(k));
+      else firstByKey.set(k, i);
+    });
+  });
+  const groups = new Map();
+  clean.forEach((s, i) => {
+    const r = root(i);
+    if (!groups.has(r)) groups.set(r, []);
+    groups.get(r).push(s);
+  });
+
+  const withLogo = [];
+  const others = [];
+  groups.forEach(members => {
+    const m = (s) => rbMeta.get(s.id) || { clicks: 0, logo: false, https: false };
+    // An entry the visitor already starred stays the one shown, so the star
+    // and the playing highlight keep matching; otherwise: logo, https, clicks.
+    const starred = members.find(s => isFavorite(s));
+    const best = starred || [...members].sort((a, b) =>
+      (m(b).logo - m(a).logo) || (m(b).https - m(a).https) || (m(b).clicks - m(a).clicks))[0];
+    const clicks = members.reduce((sum, s) => sum + m(s).clicks, 0);
+    const hasLogo = members.some(s => m(s).logo) && m(best).logo;
+    (hasLogo ? withLogo : others).push({ station: best, clicks });
+  });
+  const byClicks = (a, b) => b.clicks - a.clicks;
+  return {
+    main: withLogo.sort(byClicks).map(g => g.station),
+    more: others.sort(byClicks).map(g => g.station),
+  };
+}
+
+// One request per tag of the chosen genre (exact tag), merged.
+async function fetchGenreStations(group, countryCode) {
+  const perTag = countryCode ? 200 : 60;
+  const answers = await Promise.all(group.tags.map(tag => {
+    const params = { tag, tagExact: 'true', order: 'clickcount', reverse: 'true', limit: perTag };
+    if (countryCode) params.countrycode = countryCode;
+    return rbFetch('/stations/search', params).catch(() => []);
+  }));
+  const seen = new Set();
+  const merged = [];
+  answers.flat().forEach(s => { if (!seen.has(s.id)) { seen.add(s.id); merged.push(s); } });
+  return merged;
+}
+
+let worldRaw = [];        // everything the catalog returned for the current view
+let worldResults = [];    // tidied: one row per radio, with a logo
+let worldMore = [];       // tidied: the rest, folded under "Още станции"
+let worldMoreOpen = false;
 let worldLoading = false;
 let activeCountry = null;
 let activeGenre = null;
@@ -2776,7 +2939,9 @@ let activeCountryInfo = null;   // {code, name, stationCount} of the active coun
 let worldSearchQuery = '';
 let allCountriesCache = null;   // all 241, fetched once per page load
 
-const WORLD_PAGE_SIZE = 150;
+// 500 so a whole country (Bulgaria: ~330) arrives at once and its duplicates
+// can be merged across the full list; bigger countries still page on.
+const WORLD_PAGE_SIZE = 500;
 // Only country/genre browsing can page deeper (Radio Browser's offset param) -
 // Popular is a fixed top list and Search already merges three separate
 // queries, so both leave this null and never show "Зареди още". Mirrors
@@ -2803,17 +2968,34 @@ async function fetchAllCountries() {
   return countries;
 }
 
+// Rebuilds the tidied lists from everything loaded so far. Also called when
+// the country's full name arrives a moment later (it joins the name noise).
+function recurateWorld() {
+  const tidy = curateStations(worldRaw);
+  worldResults = tidy.main;
+  worldMore = tidy.more;
+}
+
+let worldLoadToken = 0;
 async function loadWorld(fetchFn) {
+  const token = ++worldLoadToken;
   worldLoading = true;
   worldOffset = 0;
+  worldMoreOpen = false;
   renderWorldList();
+  let raw;
   try {
-    worldResults = await fetchFn();
+    raw = await fetchFn();
   } catch {
-    worldResults = [];
+    raw = [];
   }
+  // A slower answer for an older choice (country/genre tapped in quick
+  // succession) must not replace the list of the newer one.
+  if (token !== worldLoadToken) return;
+  worldRaw = raw;
+  recurateWorld();
   worldLoading = false;
-  worldHasMore = worldPageFetch != null && worldResults.length === WORLD_PAGE_SIZE;
+  worldHasMore = worldPageFetch != null && raw.length === WORLD_PAGE_SIZE;
   renderWorldList();
 }
 
@@ -2827,9 +3009,12 @@ async function loadMoreWorld() {
   worldLoadingMore = true;
   renderWorldList();
   const nextOffset = worldOffset + WORLD_PAGE_SIZE;
+  const token = worldLoadToken;
   try {
     const more = await worldPageFetch(nextOffset);
-    worldResults = [...worldResults, ...more];
+    if (token !== worldLoadToken) return;
+    worldRaw = [...worldRaw, ...more];
+    recurateWorld();
     worldOffset = nextOffset;
     worldHasMore = more.length === WORLD_PAGE_SIZE;
   } catch {
@@ -2857,14 +3042,14 @@ function initWorldChips() {
   });
 
   els.genreChips.innerHTML = '';
-  GENRES.forEach(tag => {
+  GENRE_GROUPS.forEach(group => {
     const chip = document.createElement('div');
     chip.className = 'filter-chip';
-    chip.textContent = tag[0].toUpperCase() + tag.slice(1);
+    chip.textContent = group.label;
     chip.addEventListener('click', () => {
       // Toggle the genre; KEEP any active country so genre + country combine
       // (e.g. news within Bulgaria) instead of the genre clearing the country.
-      activeGenre = (activeGenre === tag) ? null : tag;
+      activeGenre = (activeGenre === group.key) ? null : group.key;
       worldSearchQuery = ''; els.searchBox.value = '';
       updateChipActive();
       applyWorldSelection();
@@ -2889,12 +3074,15 @@ function applyWorldSelection() {
     loadWorld(() => rbFetch('/stations/search', params));
     return;
   }
-  if (activeCountry && activeGenre) {
-    worldPageFetch = (offset) => rbFetch('/stations/search', { countrycode: activeCountry, tag: activeGenre, order: 'clickcount', reverse: 'true', limit: WORLD_PAGE_SIZE, offset });
+  const genre = genreByKey(activeGenre);
+  if (genre) {
+    // Several tag requests merged - not paged; each brings the most-listened
+    // of its tag (within the country, if one is chosen).
+    worldPageFetch = null;
+    loadWorld(() => fetchGenreStations(genre, activeCountry));
+    return;
   } else if (activeCountry) {
     worldPageFetch = (offset) => rbFetch('/stations/search', { countrycode: activeCountry, order: 'clickcount', reverse: 'true', limit: WORLD_PAGE_SIZE, offset });
-  } else if (activeGenre) {
-    worldPageFetch = (offset) => rbFetch('/stations/search', { tag: activeGenre, order: 'clickcount', reverse: 'true', limit: WORLD_PAGE_SIZE, offset });
   } else {
     worldPageFetch = null;
     loadWorld(() => rbFetch('/stations/search', { order: 'clickcount', reverse: 'true', limit: 20 }));
@@ -2927,14 +3115,18 @@ function selectCountry(code, info, auto) {
     fetchAllCountries().then(countries => {
       if (activeCountry !== code) return;
       const match = countries.find(c => c.code === code);
-      if (match) { activeCountryInfo = match; renderWorldList(); }
+      if (match) {
+        activeCountryInfo = match;
+        if (!worldLoading) recurateWorld();
+        renderWorldList();
+      }
     }).catch(() => {});
   }
 }
 
 function updateChipActive() {
   [...els.countryChips.children].forEach((c, i) => c.classList.toggle('active', quickCountries()[i] === activeCountry));
-  [...els.genreChips.children].forEach((c, i) => c.classList.toggle('active', GENRES[i] === activeGenre));
+  [...els.genreChips.children].forEach((c, i) => c.classList.toggle('active', GENRE_GROUPS[i].key === activeGenre));
 }
 
 // Shown under name-search results: what to do when the station isn't there.
@@ -2953,10 +3145,14 @@ function renderWorldList() {
   // exist", not "this country only has 150 stations" - only once the true
   // total is actually known (immediately from the Държави picker, a beat
   // later for a quick chip, once its own fetchAllCountries() lookup resolves).
-  if (activeCountryInfo && !worldLoading && !activeGenre && !worldSearchQuery.trim()) {
+  const genre = genreByKey(activeGenre);
+  const shownCount = worldResults.length + worldMore.length;
+  if (!worldLoading && shownCount > 0 && !worldSearchQuery.trim() && (activeCountryInfo || genre)) {
     const header = document.createElement('div');
     header.className = 'world-country-header';
-    header.textContent = `${activeCountryInfo.name} — показани ${worldResults.length} от ${activeCountryInfo.stationCount}`;
+    const where = [genre ? genre.label : null, activeCountryInfo ? activeCountryInfo.name : null].filter(Boolean).join(' · ');
+    header.textContent = `${where} — ${shownCount} ${shownCount === 1 ? 'станция' : 'станции'}` +
+      (worldHasMore ? ' (има още за зареждане)' : '');
     els.worldList.appendChild(header);
   }
 
@@ -2968,17 +3164,34 @@ function renderWorldList() {
     return;
   }
   const searching = !!worldSearchQuery.trim();
-  if (worldResults.length === 0) {
+  if (shownCount === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
     empty.textContent = searching
       ? 'Няма станция с това име.'
-      : 'Не успяхме да заредим станции. Опитай отново.';
+      : (genre && worldRaw.length === 0 ? 'Няма станции в този жанр тук.' : 'Не успяхме да заредим станции. Опитай отново.');
     els.worldList.appendChild(empty);
     if (searching) els.worldList.appendChild(appAddHint());
     return;
   }
   worldResults.forEach(s => els.worldList.appendChild(stationCard(s)));
+
+  // Radios without a logo: still there, folded so they don't crowd the list.
+  // With nothing above them (all without a logo), in a short list (a genre
+  // with a dozen radios), or when the visitor typed a name (they are looking
+  // for one radio), they are simply shown below the ones with a logo.
+  if (worldMore.length) {
+    if (worldResults.length === 0 || searching || shownCount <= 25) {
+      worldMore.forEach(s => els.worldList.appendChild(stationCard(s)));
+    } else {
+      const toggle = document.createElement('button');
+      toggle.className = 'more-stations-toggle';
+      toggle.textContent = (worldMoreOpen ? 'Скрий' : 'Още станции') + ` (${worldMore.length}) ` + (worldMoreOpen ? '▴' : '▾');
+      toggle.addEventListener('click', () => { worldMoreOpen = !worldMoreOpen; renderWorldList(); });
+      els.worldList.appendChild(toggle);
+      if (worldMoreOpen) worldMore.forEach(s => els.worldList.appendChild(stationCard(s)));
+    }
+  }
   if (searching) els.worldList.appendChild(appAddHint());
 
   if (worldHasMore) {
@@ -3091,7 +3304,7 @@ document.querySelectorAll('.tab').forEach(tabEl => {
     if (activeTab === 'world') {
       els.searchBox.placeholder = 'Търси станция по име...';
       els.searchBox.value = worldSearchQuery;
-      if (worldResults.length === 0 && !worldLoading) {
+      if (worldRaw.length === 0 && !worldLoading) {
         // Opens on the visitor's own country (browser language), else the
         // global most-listened list - same idea as the app's search tab.
         const home = detectedCountry();
