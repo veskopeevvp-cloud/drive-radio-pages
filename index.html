@@ -2150,7 +2150,31 @@ function presetLastStationFromLocal() {
   if (station) presetStation(station);
 }
 
+// Tells Radio Browser that one of its stations was played (2026-11-20, same
+// as the app's RadioBrowserService.reportPlay). The directory asks every app
+// to do this - its "most listened" order, which our lists use too, is built
+// from these counts. Directory stations only, at most once per station per
+// day from this browser; nothing about the visitor is sent, only the
+// station's id. A failure never affects playback.
+function reportPlayToDirectory(station) {
+  if (!station || !String(station.id || '').startsWith('rb_')) return;
+  const uuid = station.id.slice(3);
+  const d = new Date();
+  const today = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+  let sent = [];
+  try { sent = JSON.parse(localStorage.getItem('rbReportedToday') || '[]').filter(e => e.startsWith(today + '|')); } catch (_) {}
+  if (sent.includes(today + '|' + uuid)) return;
+  fetch(`${RB_BASE}/url/${encodeURIComponent(uuid)}`, { signal: AbortSignal.timeout(12000) })
+    .then(res => {
+      if (!res.ok) return;
+      sent.push(today + '|' + uuid);
+      try { localStorage.setItem('rbReportedToday', JSON.stringify(sent)); } catch (_) {}
+    })
+    .catch(() => {});
+}
+
 function playStation(station) {
+  reportPlayToDirectory(station);
   // An http station whose https version was already found plays that
   // straight away instead of failing first.
   if (/^http:/i.test(station.url) && location.protocol === 'https:') {
