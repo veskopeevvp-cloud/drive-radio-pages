@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- The page is dark by design. Without this, browsers with a forced
+     "dark mode for websites" (seen on the TV, Vesko 2026-11-21) recolour it
+     and turn the black play/pause glyph white. -->
+<meta name="color-scheme" content="dark">
 <script>
   // "player.driveradio.app." (trailing dot, e.g. copied from the end of a
   // sentence) opens the page, but Firebase sign-in rejects that host name.
