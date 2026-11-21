@@ -1063,6 +1063,19 @@
   .app-content.list-hidden { grid-template-columns: 1fr; }
   .app-content.list-hidden .station-list-col { display: none; }
   .app-content.list-hidden .player-column { flex: 1; }
+  /* TRIAL (Vesko 2026-11-21, home TV): blurred, darkened logo/cover behind
+     the whole screen. Only when opened once with ?bg=1 (remembered on that
+     device; ?bg=0 turns it off) - everyone else keeps the black screen.
+     The 2026-08 "no blurred background" call was about the car app's
+     at-a-glance legibility; this is a trial for the home/TV player. */
+  #artBackdrop {
+    position: fixed; inset: -80px; z-index: -1; pointer-events: none;
+    background-size: cover; background-position: center;
+    filter: blur(50px) brightness(0.38) saturate(1.35);
+    opacity: 0; transition: opacity 0.9s ease;
+  }
+  #artBackdrop.on { opacity: 1; }
+  body.art-bg header { background: rgba(0,0,0,0.35); }
   /* Wide but short screens (a TV browser is ~500-560px tall): the tall
      header (clock stacked under the logo) ate a quarter of the height. One
      compact row instead, as on a landscape phone. */
@@ -3604,6 +3617,39 @@ els.addressForm.addEventListener('submit', async (e) => {
     img.style.display = 'none';
     fallback.style.display = 'flex';
   });
+})();
+
+// TRIAL: blurred logo/cover background (see #artBackdrop in the CSS).
+// player.driveradio.app/?bg=1 turns it on for this device, ?bg=0 off.
+(function () {
+  const params = new URLSearchParams(location.search);
+  let on = false;
+  try {
+    if (params.get('bg') === '1') localStorage.setItem('artBackdrop', '1');
+    if (params.get('bg') === '0') localStorage.removeItem('artBackdrop');
+    on = localStorage.getItem('artBackdrop') === '1';
+  } catch (e) {}
+  if (!on) return;
+  const img = document.getElementById('heroLogo');
+  if (!img) return;
+  document.body.classList.add('art-bg');
+  const bd = document.createElement('div');
+  bd.id = 'artBackdrop';
+  document.body.prepend(bd);
+  function sync() {
+    const src = img.getAttribute('src');
+    const shown = src && img.style.display !== 'none' && img.complete && img.naturalWidth > 0;
+    if (shown) {
+      bd.style.backgroundImage = 'url("' + img.src.replace(/"/g, '%22') + '")';
+      bd.classList.add('on');
+    } else if (!src || img.style.display === 'none') {
+      bd.classList.remove('on');
+    }
+  }
+  img.addEventListener('load', sync);
+  img.addEventListener('error', sync);
+  new MutationObserver(sync).observe(img, { attributes: true, attributeFilter: ['src', 'style'] });
+  sync();
 })();
 
 // Quick buttons: each opens another app by its URL scheme (iOS asks once).
