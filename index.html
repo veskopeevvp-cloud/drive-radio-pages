@@ -2693,10 +2693,33 @@ function updateNowPlaying() {
 // the FORMAT_NOTE const further down is initialized.
 function displayStationName(name) {
   const raw = name || '';
-  const cleaned = raw
+  const cleaned = dropRepeatedLead(raw
     .replace(/\s*[(\[][^)\]]*\b(aac\+?|ogg|mp3|opus|flac|hls|m3u8?|kbps|\d{2,3}\s?k)\b[^)\]]*[)\]]/gi, '')
-    .replace(/\s{2,}/g, ' ').trim();
+    .replace(/\s{2,}/g, ' ').trim());
   return cleaned || raw;
+}
+
+// "Radio 1 радио 1 класическите хитове" -> "Radio 1 класическите хитове"
+// (Vesko 2026-11-21): the opening words repeated, once in Latin and once in
+// Cyrillic (or twice the same). Only an exact repeat of the start counts.
+// Same rule as cleanStationName() in the app's stations.dart.
+function dropRepeatedLead(name) {
+  const CYR = { а:'a', б:'b', в:'v', г:'g', д:'d', е:'e', ж:'zh', з:'z', и:'i', й:'y', к:'k', л:'l',
+    м:'m', н:'n', о:'o', п:'p', р:'r', с:'s', т:'t', у:'u', ф:'f', х:'h', ц:'ts', ч:'ch', ш:'sh',
+    щ:'sht', ъ:'a', ь:'y', ю:'yu', я:'ya', ё:'yo', ы:'y', э:'e', є:'ye', і:'i', ї:'yi', ђ:'dj',
+    ј:'j', љ:'lj', њ:'nj', ћ:'c', џ:'dz' };
+  const key = w => [...w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')].map(c => CYR[c] ?? c).join('');
+  const words = name.split(' ');
+  const n = words.length;
+  for (let k = Math.min(4, Math.floor(n / 2)); k >= 1; k--) {
+    let j = k;
+    if (j < n && key(words[j]) === '') j++; // "Radio 1 - Радио 1 ..."
+    if (j + k > n) continue;
+    const a = words.slice(0, k).map(key).join(' ');
+    const b = words.slice(j, j + k).map(key).join(' ');
+    if (a.trim() && a === b) return [...words.slice(0, k), ...words.slice(j + k)].join(' ').trim();
+  }
+  return name;
 }
 
 function stationCard(station) {
