@@ -2165,6 +2165,40 @@ function registerMediaActions() {
 }
 registerMediaActions();
 
+// TV remote (Vesko 2026-11-21): the channel buttons switch stations - CH+
+// next favorite, CH- previous. Browsers name them differently: "ChannelUp"/
+// "ChannelDown", keyCode 427/428 (webOS/HbbTV style) or 166/167 (Android
+// KEYCODE_CHANNEL_*). Not while typing in a field. Media keys (⏭ ⏮) are
+// already handled through the Media Session above.
+// player.driveradio.app/?keys=1 shows what each pressed key sends, for a
+// remote whose buttons don't work yet.
+(function () {
+  const UP = new Set(['ChannelUp', 427, 166]);
+  const DOWN = new Set(['ChannelDown', 428, 167]);
+  let keyLog = null;
+  if (new URLSearchParams(location.search).get('keys') === '1') {
+    keyLog = document.createElement('div');
+    keyLog.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:99;background:#111;color:#ffb066;' +
+      'border:1px solid #ff8c1a;border-radius:10px;padding:8px 12px;font:14px monospace;pointer-events:none;';
+    keyLog.textContent = 'Натисни бутон на дистанционното…';
+    document.body.appendChild(keyLog);
+  }
+  document.addEventListener('keydown', (e) => {
+    if (keyLog) keyLog.textContent = `key=${e.key}  code=${e.code}  keyCode=${e.keyCode}`;
+    const a = document.activeElement;
+    if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT')) return;
+    // 166/167 are also a PC keyboard's Browser Back/Forward keys - those
+    // say so in e.key and keep their normal job.
+    const browserNav = e.key === 'BrowserBack' || e.key === 'BrowserForward';
+    const up = UP.has(e.key) || (!browserNav && UP.has(e.keyCode));
+    const down = DOWN.has(e.key) || (!browserNav && DOWN.has(e.keyCode));
+    if (!up && !down) return;
+    e.preventDefault();
+    if (!currentStation) return;
+    stepStation(up ? 1 : -1);
+  });
+})();
+
 // ---------- Keep the screen on while playing (phones/tablets) ----------
 // Same idea as the keep-awake option in the app: a phone on a car mount
 // shouldn't go dark mid-drive. Skipped on desktops (mouse/trackpad).
