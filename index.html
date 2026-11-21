@@ -2610,7 +2610,10 @@ async function fetchAndShowNowPlayingSong() {
     // app does natively - this poll is the only place a web session ever
     // learns the current song, so it's also the only place that can write
     // a history entry for time spent listening on the web.
-    if (data.song && currentUser && isPremium) {
+    // A jingle ("RADIO 1 - КЛАСИЧЕСКИТЕ ХИТОВЕ") is not a song: History keeps
+    // songs only (2026-11-21). It also doesn't reset the last-recorded key,
+    // so the song resuming after a jingle isn't recorded a second time.
+    if (data.song && currentUser && isPremium && !isStationNameOnly(data.song, currentStation.name)) {
       const key = stationUrl + '|' + data.song;
       if (key !== lastRecordedHistoryKey) {
         lastRecordedHistoryKey = key;
@@ -2707,12 +2710,25 @@ function displayStationName(name) {
 // (Vesko 2026-11-21): the opening words repeated, once in Latin and once in
 // Cyrillic (or twice the same). Only an exact repeat of the start counts.
 // Same rule as cleanStationName() in the app's stations.dart.
+const CYR_TO_LAT = { а:'a', б:'b', в:'v', г:'g', д:'d', е:'e', ж:'zh', з:'z', и:'i', й:'y', к:'k', л:'l',
+  м:'m', н:'n', о:'o', п:'p', р:'r', с:'s', т:'t', у:'u', ф:'f', х:'h', ц:'ts', ч:'ch', ш:'sh',
+  щ:'sht', ъ:'a', ь:'y', ю:'yu', я:'ya', ё:'yo', ы:'y', э:'e', є:'ye', і:'i', ї:'yi', ђ:'dj',
+  ј:'j', љ:'lj', њ:'nj', ћ:'c', џ:'dz' };
+const wordKey = w => [...w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')].map(c => CYR_TO_LAT[c] ?? c).join('');
+
+// True when the "song" is really the station's own name - a jingle such as
+// "RADIO 1 - КЛАСИЧЕСКИТЕ ХИТОВЕ" (2026-11-21). Case, dashes, spacing and
+// Latin/Cyrillic spelling are ignored. Same as isStationNameOnly() in the
+// app's stations.dart.
+function isStationNameOnly(song, stationName) {
+  const compact = t => (t || '').split(/\s+/).map(wordKey).join('');
+  const s = compact(song);
+  if (!s) return true;
+  return s === compact(stationName) || s === compact(displayStationName(stationName));
+}
+
 function dropRepeatedLead(name) {
-  const CYR = { а:'a', б:'b', в:'v', г:'g', д:'d', е:'e', ж:'zh', з:'z', и:'i', й:'y', к:'k', л:'l',
-    м:'m', н:'n', о:'o', п:'p', р:'r', с:'s', т:'t', у:'u', ф:'f', х:'h', ц:'ts', ч:'ch', ш:'sh',
-    щ:'sht', ъ:'a', ь:'y', ю:'yu', я:'ya', ё:'yo', ы:'y', э:'e', є:'ye', і:'i', ї:'yi', ђ:'dj',
-    ј:'j', љ:'lj', њ:'nj', ћ:'c', џ:'dz' };
-  const key = w => [...w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')].map(c => CYR[c] ?? c).join('');
+  const key = wordKey;
   const words = name.split(' ');
   const n = words.length;
   for (let k = Math.min(4, Math.floor(n / 2)); k >= 1; k--) {
