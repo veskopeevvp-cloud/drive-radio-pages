@@ -1063,11 +1063,10 @@
   .app-content.list-hidden { grid-template-columns: 1fr; }
   .app-content.list-hidden .station-list-col { display: none; }
   .app-content.list-hidden .player-column { flex: 1; }
-  /* TRIAL (Vesko 2026-11-21, home TV): blurred, darkened logo/cover behind
-     the whole screen. Only when opened once with ?bg=1 (remembered on that
-     device; ?bg=0 turns it off) - everyone else keeps the black screen.
-     The 2026-08 "no blurred background" call was about the car app's
-     at-a-glance legibility; this is a trial for the home/TV player. */
+  /* Blurred, darkened logo/cover behind the whole screen (Vesko 2026-11-21:
+     tried on TV + iPhone, liked it, on for everyone; ?bg=0 turns it off on
+     a device). The 2026-08 "no blurred background" call was about the car
+     app's at-a-glance legibility - the app gets it as an option in v9. */
   #artBackdrop {
     position: fixed; inset: -80px; z-index: -1; pointer-events: none;
     background-size: cover; background-position: center;
@@ -1112,12 +1111,19 @@
     .app-content.list-hidden .hero-art { width: 180px; height: 180px; }
     .app-content.list-hidden .hero-name { font-size: 1.5em; }
   }
+  /* Landscape phone: sized by height too - with Safari's address bar showing
+     an iPhone has only ~320px, and fixed sizes cut the play button off
+     (Vesko's iPhone, 2026-11-21). */
   @media (max-height: 500px) and (orientation: landscape) {
-    .app-content.list-hidden .hero-art { width: 96px; height: 96px; }
-    .app-content.list-hidden .hero-name { font-size: 1.3em; }
-    .app-content.list-hidden .hero-play-btn { width: 72px; height: 72px; }
-    .app-content.list-hidden .hero-play-btn svg { width: 32px; height: 32px; }
-    .app-content.list-hidden .hero-transport-btn { width: 46px; height: 46px; }
+    .app-content.list-hidden #hero { padding: 0 0 4px; }
+    .app-content.list-hidden .hero-art { width: min(96px, 21vh); height: min(96px, 21vh); margin-bottom: 1.5vh; }
+    .app-content.list-hidden .hero-name { font-size: clamp(1.05em, 5.5vh, 1.3em); }
+    .app-content.list-hidden .hero-status,
+    .app-content.list-hidden .hero-song { margin-bottom: 2vh; }
+    .app-content.list-hidden .hero-play-btn { width: min(72px, 17vh); height: min(72px, 17vh); }
+    .app-content.list-hidden .hero-play-btn svg { width: min(32px, 7.5vh); height: min(32px, 7.5vh); }
+    .app-content.list-hidden .hero-transport-btn { width: min(46px, 12vh); height: min(46px, 12vh); }
+    .app-content.list-hidden .music-btn { margin-top: 1.5vh; }
   }
 
   /* Quick buttons (navigation / music / call), like the car-mode rail in the
@@ -3619,15 +3625,16 @@ els.addressForm.addEventListener('submit', async (e) => {
   });
 })();
 
-// TRIAL: blurred logo/cover background (see #artBackdrop in the CSS).
-// player.driveradio.app/?bg=1 turns it on for this device, ?bg=0 off.
+// Blurred logo/cover background (see #artBackdrop in the CSS). On for
+// everyone since 2026-11-21 (Vesko liked the trial on TV and iPhone);
+// player.driveradio.app/?bg=0 turns it off on that device, ?bg=1 back on.
 (function () {
   const params = new URLSearchParams(location.search);
-  let on = false;
+  let on = true;
   try {
-    if (params.get('bg') === '1') localStorage.setItem('artBackdrop', '1');
-    if (params.get('bg') === '0') localStorage.removeItem('artBackdrop');
-    on = localStorage.getItem('artBackdrop') === '1';
+    if (params.get('bg') === '0') localStorage.setItem('artBackdrop', '0');
+    if (params.get('bg') === '1') localStorage.removeItem('artBackdrop');
+    on = localStorage.getItem('artBackdrop') !== '0';
   } catch (e) {}
   if (!on) return;
   const img = document.getElementById('heroLogo');
