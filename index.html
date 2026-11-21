@@ -1075,6 +1075,17 @@
   }
   #artBackdrop.on { opacity: 1; }
   body.art-bg header { background: rgba(0,0,0,0.35); }
+  /* The tabs/search/genres block above the station list was solid black -
+     a pasted-on box over the blurred background. Semi-transparent now, but
+     frosted: stations scrolling up under it are blurred away, never
+     readable behind the buttons (Vesko 2026-11-21, that was the reason it
+     was made solid in the first place). */
+  body.art-bg .station-list-col .sticky-header {
+    background: rgba(8,8,10,0.62);
+    -webkit-backdrop-filter: blur(22px) saturate(1.2);
+    backdrop-filter: blur(22px) saturate(1.2);
+    border-radius: 14px;
+  }
   /* Wide but short screens (a TV browser is ~500-560px tall): the tall
      header (clock stacked under the logo) ate a quarter of the height. One
      compact row instead, as on a landscape phone. */
