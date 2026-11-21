@@ -1063,16 +1063,35 @@
   .app-content.list-hidden { grid-template-columns: 1fr; }
   .app-content.list-hidden .station-list-col { display: none; }
   .app-content.list-hidden .player-column { flex: 1; }
-  /* Big screens (computer, TV): a big player, readable from the sofa. */
+  /* Wide but short screens (a TV browser is ~500-560px tall): the tall
+     header (clock stacked under the logo) ate a quarter of the height. One
+     compact row instead, as on a landscape phone. */
+  @media (min-width: 861px) and (min-height: 501px) and (max-height: 640px) {
+    :root { --header-h: 64px; }
+    header { padding: 8px 24px; gap: 12px; }
+    .brand { flex-direction: row; align-items: center; gap: 14px; }
+    header .logo { width: 36px; height: 36px; }
+    header h1 { font-size: 1.1em; }
+    .drclock { flex-direction: row; gap: 10px; padding: 4px 10px; }
+    .drclock-time { font-size: 18px; }
+    main { padding-top: 14px; padding-bottom: 14px; }
+  }
+  /* Big screens (computer, TV): a big player, readable from the sofa.
+     Sized by the screen's HEIGHT too (vh): a TV browser is wide but only
+     ~500px tall, and fixed sizes cut the play button off the bottom
+     (Vesko's TCL TV, 2026-11-21). */
   @media (min-width: 861px) and (min-height: 501px) {
-    .app-content.list-hidden .hero-art { width: 260px; height: 260px; border-radius: 28px; }
-    .app-content.list-hidden .hero-name { font-size: 2.1em; }
-    .app-content.list-hidden .hero-status { font-size: 1.25em; }
-    .app-content.list-hidden .hero-transport { gap: 44px; }
-    .app-content.list-hidden .hero-play-btn { width: 112px; height: 112px; }
-    .app-content.list-hidden .hero-play-btn svg { width: 46px; height: 46px; }
-    .app-content.list-hidden .hero-transport-btn { width: 60px; height: 60px; }
-    .app-content.list-hidden .hero-transport-btn svg { width: 30px; height: 30px; }
+    .app-content.list-hidden #hero { padding: 0 0 2vh; }
+    .app-content.list-hidden .hero-art { width: min(260px, 30vh); height: min(260px, 30vh); border-radius: 24px; margin-bottom: 2vh; }
+    .app-content.list-hidden .hero-name { font-size: clamp(1.3em, 4.4vh, 2.1em); }
+    .app-content.list-hidden .hero-status,
+    .app-content.list-hidden .hero-song { font-size: clamp(0.95em, 2.4vh, 1.25em); margin-bottom: 2.4vh; }
+    .app-content.list-hidden .hero-transport { gap: min(44px, 5vh); }
+    .app-content.list-hidden .hero-play-btn { width: min(112px, 13vh); height: min(112px, 13vh); }
+    .app-content.list-hidden .hero-play-btn svg { width: min(46px, 5.4vh); height: min(46px, 5.4vh); }
+    .app-content.list-hidden .hero-transport-btn { width: min(60px, 7.5vh); height: min(60px, 7.5vh); }
+    .app-content.list-hidden .hero-transport-btn svg { width: min(30px, 3.8vh); height: min(30px, 3.8vh); }
+    .app-content.list-hidden .music-btn { margin-top: 1.6vh; }
   }
   /* Phone/tablet portrait: the player alone, a bit bigger, centred. */
   @media (max-width: 860px) and (min-height: 501px) {
