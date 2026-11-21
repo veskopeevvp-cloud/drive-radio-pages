@@ -236,7 +236,7 @@
     box-shadow: 0 10px 40px rgba(255,140,26,0.12);
   }
   .hero-art img { width: 100%; height: 100%; object-fit: contain; }
-  .hero-art .logo-fallback { width: 100%; height: 100%; font-size: 3em; }
+  .hero-art .logo-fallback { width: 100%; height: 100%; font-size: 3em; align-items: center; justify-content: center; }
   .hero-name { font-size: 1.3em; font-weight: 700; margin-bottom: 4px; }
   .hero-origin { color: var(--text-dim); font-size: 0.85em; margin-bottom: 6px; }
   .hero-status { color: var(--text-dim); font-size: 0.9em; margin-bottom: 22px; }
@@ -1056,10 +1056,31 @@
     #signOutBtn { padding: 6px 12px !important; }
     main { padding-top: 12px; padding-bottom: 12px; }
   }
+  /* While playing with nobody touching the screen, the station list steps
+     aside and the player takes the whole screen - every screen size now
+     (Vesko 2026-11-21: TV/computer too, not only a landscape phone). */
+  .app-content { transition: grid-template-columns 0.4s ease; }
+  .app-content.list-hidden { grid-template-columns: 1fr; }
+  .app-content.list-hidden .station-list-col { display: none; }
+  .app-content.list-hidden .player-column { flex: 1; }
+  /* Big screens (computer, TV): a big player, readable from the sofa. */
+  @media (min-width: 861px) and (min-height: 501px) {
+    .app-content.list-hidden .hero-art { width: 260px; height: 260px; border-radius: 28px; }
+    .app-content.list-hidden .hero-name { font-size: 2.1em; }
+    .app-content.list-hidden .hero-status { font-size: 1.25em; }
+    .app-content.list-hidden .hero-transport { gap: 44px; }
+    .app-content.list-hidden .hero-play-btn { width: 112px; height: 112px; }
+    .app-content.list-hidden .hero-play-btn svg { width: 46px; height: 46px; }
+    .app-content.list-hidden .hero-transport-btn { width: 60px; height: 60px; }
+    .app-content.list-hidden .hero-transport-btn svg { width: 30px; height: 30px; }
+  }
+  /* Phone/tablet portrait: the player alone, a bit bigger, centred. */
+  @media (max-width: 860px) and (min-height: 501px) {
+    .app-content.list-hidden .player-column { display: flex; align-items: center; }
+    .app-content.list-hidden .hero-art { width: 180px; height: 180px; }
+    .app-content.list-hidden .hero-name { font-size: 1.5em; }
+  }
   @media (max-height: 500px) and (orientation: landscape) {
-    .app-content { transition: grid-template-columns 0.4s ease; }
-    .app-content.list-hidden { grid-template-columns: 1fr; }
-    .app-content.list-hidden .station-list-col { display: none; }
     .app-content.list-hidden .hero-art { width: 96px; height: 96px; }
     .app-content.list-hidden .hero-name { font-size: 1.3em; }
     .app-content.list-hidden .hero-play-btn { width: 72px; height: 72px; }
@@ -1900,7 +1921,7 @@ function historyCard(entry) {
   song.textContent = `${entry.artist} - ${entry.title}`;
   const meta = document.createElement('div');
   meta.className = 'meta';
-  meta.textContent = `${entry.station} · ${timeLabel(entry.timestamp)}`;
+  meta.textContent = `${displayStationName(entry.station)} · ${timeLabel(entry.timestamp)}`;
   info.appendChild(song);
   info.appendChild(meta);
   card.appendChild(info);
@@ -2078,8 +2099,8 @@ function updateMediaSession(song, artUrl) {
   const art = artUrl || logoSrcFor(currentStation);
   try {
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: song || currentStation.name,
-      artist: song ? currentStation.name : 'Drive Radio',
+      title: song || displayStationName(currentStation.name),
+      artist: song ? displayStationName(currentStation.name) : 'Drive Radio',
       album: 'Drive Radio',
       artwork: art ? [{ src: new URL(art, location.href).href, sizes: '512x512' }] : [],
     });
@@ -2518,7 +2539,7 @@ function updateNowPlaying() {
   }
   els.hero.style.display = 'flex';
   els.playerEmpty.style.display = 'none';
-  els.heroName.textContent = currentStation.name;
+  els.heroName.textContent = displayStationName(currentStation.name);
   updateHeroFav();
   setPlayingUI(false);
   setStatus('Свързване…');
@@ -2546,6 +2567,18 @@ function updateNowPlaying() {
 }
 
 // ---------- Rendering ----------
+// The name as shown - without stream-format notes like "(AAC 128)", "(ogg)",
+// "[320 kbps]" (Vesko 2026-11-21, same as the app's displayName). The stored
+// name stays as it is. Own regex here: a function declaration can run before
+// the FORMAT_NOTE const further down is initialized.
+function displayStationName(name) {
+  const raw = name || '';
+  const cleaned = raw
+    .replace(/\s*[(\[][^)\]]*\b(aac\+?|ogg|mp3|opus|flac|hls|m3u8?|kbps|\d{2,3}\s?k)\b[^)\]]*[)\]]/gi, '')
+    .replace(/\s{2,}/g, ' ').trim();
+  return cleaned || raw;
+}
+
 function stationCard(station) {
   const card = document.createElement('div');
   card.className = 'station-card' + (currentStation?.id === station.id ? ' playing' : '');
@@ -2567,7 +2600,7 @@ function stationCard(station) {
   info.className = 'info';
   const name = document.createElement('div');
   name.className = 'name';
-  name.textContent = station.name;
+  name.textContent = displayStationName(station.name);
   const sub = document.createElement('div');
   sub.className = 'sub';
   sub.textContent = station.source === 'custom'
@@ -3510,27 +3543,48 @@ els.addressForm.addEventListener('submit', async (e) => {
   setInterval(loadWeather, 15 * 60 * 1000);
 })();
 
-// Landscape phone: hide the station list after 8 s without a touch while
-// something is playing; any touch/key brings it back and restarts the timer
-// (mirrors showLandscapeControls / hideLandscapeUI() in the app's main.dart).
+// Every screen (was landscape phone only until 2026-11-21): hide the station
+// list after 8 s without a touch, click, key or mouse move while something
+// is playing; any of those brings it back and restarts the timer (mirrors
+// showLandscapeControls / hideLandscapeUI() in the app's main.dart). Not
+// while the viewer is typing (search box) or a popup is open.
 (function () {
-  const mq = window.matchMedia('(max-height: 500px) and (orientation: landscape)');
   const content = document.querySelector('.app-content');
   const audioEl = document.getElementById('player');
   let timer = null;
+  function busy() {
+    const a = document.activeElement;
+    if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT')) return true;
+    return !!document.querySelector('#quickSheetOverlay.open, #historyOverlay.open, #countriesOverlay.open');
+  }
   function arm() {
     clearTimeout(timer);
     content.classList.remove('list-hidden');
-    if (!mq.matches) return;
     timer = setTimeout(() => {
-      if (mq.matches && audioEl && !audioEl.paused) content.classList.add('list-hidden');
+      if (audioEl && !audioEl.paused && !busy()) content.classList.add('list-hidden');
     }, 8000);
   }
-  ['pointerdown', 'touchstart', 'keydown'].forEach(ev =>
+  ['pointerdown', 'touchstart', 'keydown', 'mousemove', 'wheel'].forEach(ev =>
     document.addEventListener(ev, arm, { passive: true }));
-  if (mq.addEventListener) mq.addEventListener('change', arm);
-  if (audioEl) audioEl.addEventListener('playing', arm);
+  if (audioEl) {
+    audioEl.addEventListener('playing', arm);
+    audioEl.addEventListener('pause', arm);
+  }
   arm();
+})();
+
+// A station logo or song cover that fails to load showed the browser's
+// broken-image icon in the big player; show our radio icon instead, as the
+// station cards already do.
+(function () {
+  const img = document.getElementById('heroLogo');
+  const fallback = document.getElementById('heroLogoFallback');
+  if (!img || !fallback) return;
+  img.addEventListener('error', () => {
+    if (!img.getAttribute('src')) return;
+    img.style.display = 'none';
+    fallback.style.display = 'flex';
+  });
 })();
 
 // Quick buttons: each opens another app by its URL scheme (iOS asks once).
