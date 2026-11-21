@@ -1086,6 +1086,43 @@
     backdrop-filter: blur(22px) saturate(1.2);
     border-radius: 14px;
   }
+  /* Phone/tablet portrait, Търсене or Stream URL tab: the big player
+     shrinks into one slim row (logo, name, song, ⏮ ⏯ ⏭) so the results get
+     the screen (Vesko 2026-11-21: search was "доста скрито"). Back on
+     Любими it's the big player again. */
+  @media (max-width: 860px) and (min-height: 501px) {
+    .app-content.compact-hero:not(.list-hidden) #hero:not([style*="none"]) {
+      display: grid !important;
+      grid-template-columns: 52px minmax(0, 1fr) auto;
+      grid-template-areas: "art name transport" "art status transport" "art song transport";
+      align-items: center; column-gap: 12px; row-gap: 0;
+      text-align: left; padding: 4px 2px 8px;
+    }
+    .app-content.compact-hero:not(.list-hidden) #hero .hero-art {
+      grid-area: art; width: 52px; height: 52px; margin: 0; border-radius: 10px;
+    }
+    .app-content.compact-hero:not(.list-hidden) #hero .hero-art .logo-fallback { font-size: 1.5em; }
+    .app-content.compact-hero:not(.list-hidden) #hero .hero-name-row {
+      grid-area: name; margin: 0; justify-content: flex-start; min-width: 0; gap: 6px;
+    }
+    .app-content.compact-hero:not(.list-hidden) #hero .hero-name {
+      font-size: 1em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+    }
+    .app-content.compact-hero:not(.list-hidden) #hero #historyIconBtn,
+    .app-content.compact-hero:not(.list-hidden) #hero .hero-origin,
+    .app-content.compact-hero:not(.list-hidden) #hero .music-btn { display: none !important; }
+    .app-content.compact-hero:not(.list-hidden) #hero .hero-status { grid-area: status; }
+    .app-content.compact-hero:not(.list-hidden) #hero .hero-song { grid-area: song; }
+    .app-content.compact-hero:not(.list-hidden) #hero .hero-status,
+    .app-content.compact-hero:not(.list-hidden) #hero .hero-song {
+      margin: 0; font-size: 0.8em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+    }
+    .app-content.compact-hero:not(.list-hidden) #hero .hero-transport { grid-area: transport; gap: 4px; margin: 0; }
+    .app-content.compact-hero:not(.list-hidden) #hero .hero-play-btn { width: 46px; height: 46px; }
+    .app-content.compact-hero:not(.list-hidden) #hero .hero-play-btn svg { width: 22px; height: 22px; }
+    .app-content.compact-hero:not(.list-hidden) #hero .hero-transport-btn { width: 34px; height: 34px; }
+    .app-content.compact-hero:not(.list-hidden) #hero .hero-transport-btn svg { width: 18px; height: 18px; }
+  }
   /* Wide but short screens (a TV browser is ~500-560px tall): the tall
      header (clock stacked under the logo) ate a quarter of the height. One
      compact row instead, as on a landscape phone. */
@@ -3439,6 +3476,9 @@ document.querySelectorAll('.tab').forEach(tabEl => {
     // scrolling past hundreds of search results.
     els.addressPanel.style.display = activeTab === 'address' ? '' : 'none';
     els.searchBox.style.display = activeTab === 'world' ? '' : 'none';
+    // Phone portrait: slim player row on Търсене / Stream URL (CSS decides
+    // the screen size; on wide screens this class changes nothing).
+    document.querySelector('.app-content').classList.toggle('compact-hero', activeTab !== 'favorites');
     updateFreeFavoritesHint();
 
     if (activeTab === 'world') {
