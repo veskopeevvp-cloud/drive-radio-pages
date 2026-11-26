@@ -86,6 +86,23 @@
   }
   header .about-top:hover, header .about-top:focus-visible { color: var(--orange); }
   @media (max-width: 560px) { header .about-top { font-size: 0.82em; margin-right: 10px; } }
+  /* BG / EN switch with flags, same look as on driveradio.app */
+  header .lang-switch { display: flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; margin-right: 14px; flex-shrink: 0; }
+  header .lang-switch button {
+    display: flex; align-items: center; gap: 6px; background: none; border: 0; cursor: pointer;
+    color: var(--text-dim); font: inherit; font-size: 0.78em; font-weight: 600; letter-spacing: 0.06em; padding: 6px 10px;
+  }
+  header .lang-switch button:hover { color: var(--text); }
+  header .lang-switch button[aria-pressed="true"] { background: var(--orange); color: #050505; }
+  header .lang-switch img { display: block; width: 18px; height: 12px; border-radius: 2px; box-shadow: 0 0 0 1px rgba(255,255,255,0.18); }
+  @media (max-width: 560px) {
+    header .lang-switch { margin-right: 6px; }
+    header .lang-switch .code { display: none; }
+    header .lang-switch button { padding: 7px 8px; }
+  }
+  /* Narrow phones: the site link leaves the header to make room for the switch
+     (the same link stays in the footer and on the sign-in screen). */
+  @media (max-width: 440px) { header .about-top { display: none; } }
   .get-app {
     position: relative;
     display: inline-flex; align-items: center; gap: 8px;
@@ -1231,6 +1248,10 @@
   </div>
   <div class="spacer"></div>
   <a class="about-top" href="https://driveradio.app/" target="_blank" rel="noopener">За Drive Radio ↗</a>
+  <div class="lang-switch" role="group" aria-label="Language / Език">
+    <button type="button" data-lang="bg" lang="bg" title="Български"><img src="flag-bg.svg" width="18" height="12" alt=""><span class="code">BG</span></button>
+    <button type="button" data-lang="en" lang="en" title="English"><img src="flag-gb.svg" width="18" height="12" alt=""><span class="code">EN</span></button>
+  </div>
   <div class="user" id="userBar" style="display:none;">
     <img id="userPhoto" src="" alt="" style="display:none;">
     <span id="userEmail"></span>
@@ -1338,7 +1359,7 @@
       </div>
 
       <footer>
-        <a href="https://driveradio.app/" target="_blank" rel="noopener">За приложението</a> &middot; <a href="privacy-policy.html">Политика за поверителност</a> &middot; <a href="terms.html">Общи условия</a> &middot; <a href="https://play.google.com/store/apps/details?id=bg.driveradio.app" target="_blank" rel="noopener">Drive Radio за Android</a>
+        <a href="https://driveradio.app/" target="_blank" rel="noopener">За приложението</a> &middot; <a href="privacy-policy.html">Политика за поверителност</a> &middot; <a href="terms.html">Общи условия</a> &middot; <a href="https://play.google.com/store/apps/details?id=bg.driveradio.app&amp;referrer=utm_source%3Dplayer.driveradio.app%26utm_medium%3Dwebplayer" target="_blank" rel="noopener">Drive Radio за Android</a>
         <br><span class="rights-notice">Имената и логата на радиостанциите принадлежат на съответните им правоносители. Drive Radio е независимо приложение и не е официално свързано с радиостанциите, освен ако не е посочено друго. За въпроси относно съдържание, права или искания за премахване: <a href="mailto:info.driveradio@gmail.com">info.driveradio@gmail.com</a></span>
       </footer>
     </div>
@@ -1388,7 +1409,7 @@
       <li>Резервно копие на списъка в профила ти</li>
     </ul>
     <div class="modal-actions">
-      <a id="premiumUpgradeBtn" class="btn primary" href="https://play.google.com/store/apps/details?id=bg.driveradio.app" target="_blank" rel="noopener">Отвори в Google Play</a>
+      <a id="premiumUpgradeBtn" class="btn primary" href="https://play.google.com/store/apps/details?id=bg.driveradio.app&amp;referrer=utm_source%3Dplayer.driveradio.app%26utm_medium%3Dwebplayer" target="_blank" rel="noopener">Отвори в Google Play</a>
       <button id="premiumLaterBtn" class="btn">По-късно</button>
     </div>
     <p class="modal-note">Premium се купува в приложението за Android. Влез тук със същия профил и списъкът ще стане общ.</p>
@@ -1418,7 +1439,7 @@
       <div class="modal-icon">⭐</div>
       <h4>Историята е Premium функция</h4>
       <p>Виж последно изсвирените песни от всички станции — с обложки и час на излъчване, синхронизирано между телефона и компютъра.</p>
-      <a class="btn primary" href="https://play.google.com/store/apps/details?id=bg.driveradio.app" target="_blank" rel="noopener">Отвори в Google Play</a>
+      <a class="btn primary" href="https://play.google.com/store/apps/details?id=bg.driveradio.app&amp;referrer=utm_source%3Dplayer.driveradio.app%26utm_medium%3Dwebplayer" target="_blank" rel="noopener">Отвори в Google Play</a>
     </div>
     <div id="historyPremiumView" style="display:none;">
       <div class="history-toolbar">
@@ -1444,6 +1465,215 @@
   </div>
 </div>
 
+<script>
+// Language of the web player: Bulgarian or English (2026-11-26).
+// Bulgarian is the source text in the markup and in the code; drTr() swaps it
+// for the English entry below. Order of choice: ?lang= in the link (the site
+// sends it), then the visitor's own earlier choice, then the browser: any
+// Bulgarian language or a Sofia clock means Bulgarian, everything else English.
+// Runs before the app script and before the first paint, so English visitors
+// never see Bulgarian flash by.
+(function () {
+  var KEY = 'driveRadioPlayerLang';
+  var lang = null;
+  var params = new URLSearchParams(location.search);
+  var fromLink = params.get('lang');
+  if (fromLink === 'bg' || fromLink === 'en') {
+    lang = fromLink;
+    try { localStorage.setItem(KEY, lang); } catch (e) {}
+    params.delete('lang');
+    var rest = params.toString();
+    history.replaceState(null, '', location.pathname + (rest ? '?' + rest : '') + location.hash);
+  }
+  if (!lang) {
+    try { var saved = localStorage.getItem(KEY); if (saved === 'bg' || saved === 'en') lang = saved; } catch (e) {}
+  }
+  if (!lang) {
+    var langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || ''];
+    var bgBrowser = langs.some(function (l) { return /^bg(-|$)/i.test(l); });
+    var sofia = false;
+    try { sofia = Intl.DateTimeFormat().resolvedOptions().timeZone === 'Europe/Sofia'; } catch (e) {}
+    lang = (bgBrowser || sofia) ? 'bg' : 'en';
+  }
+  document.documentElement.lang = lang;
+
+  var EN = {
+    "Уеб плейърът на Drive Radio: намери радиостанция по име или държава, добави я в любими и слушай от компютъра или телефона. С Premium любимите са общи с приложението.": "The Drive Radio web player: find a radio station by name or country, add it to your favorites and listen on your computer or phone. With Premium your favorites are shared with the app.",
+    "За Drive Radio ↗": "About Drive Radio ↗",
+    "Изход": "Sign out",
+    "Намери радиостанция по име или държава, добави я в любими и слушай от компютъра или телефона. Ако имаш приложението Drive Radio, влез със същия профил.": "Find a radio station by name or country, add it to your favorites and listen on your computer or phone. If you have the Drive Radio app, sign in with the same account.",
+    "Вход с Google": "Sign in with Google",
+    "или с имейл": "or with email",
+    "Имейл": "Email",
+    "Парола (поне 6 символа)": "Password (at least 6 characters)",
+    "Вход с имейл": "Sign in with email",
+    "Нямаш акаунт?": "No account?",
+    "Регистрирай се": "Sign up",
+    "Какво е Drive Radio?": "What is Drive Radio?",
+    "Имената и логата на радиостанциите принадлежат на съответните им правоносители. Drive Radio е независимо приложение и не е официално свързано с радиостанциите, освен ако не е посочено друго. За въпроси относно съдържание, права или искания за премахване:": "Radio station names and logos belong to their respective rights holders. Drive Radio is an independent app and is not officially affiliated with the stations unless stated otherwise. For questions about content, rights or removal requests:",
+    "История": "History",
+    "История на песните": "Song history",
+    "Добави в любими": "Add to favorites",
+    "Премахни от любими": "Remove from favorites",
+    "Спряно": "Stopped",
+    "🎵 На живо": "🎵 Live",
+    "Предишна": "Previous",
+    "Предишна станция": "Previous station",
+    "Следваща": "Next",
+    "Следваща станция": "Next station",
+    "Избери станция от списъка,": "Pick a station from the list",
+    "за да чуеш нещо.": "to start listening.",
+    "⭐ Любими": "⭐ Favorites",
+    "🔍 Търсене": "🔍 Search",
+    "Търси станция...": "Search for a station...",
+    "Държави": "Countries",
+    "Любимите ти се пазят в този браузър.": "Your favorites are kept in this browser.",
+    "С Premium": "With Premium",
+    "списъкът е общ с приложението Drive Radio на телефона ти: добавиш станция там и тя се появява и тук.": "your list is shared with the Drive Radio app on your phone: add a station there and it shows up here too.",
+    "Как?": "How?",
+    "Добави станция по stream линк": "Add a station by its stream link",
+    "Имаш директния stream линк на радио, което го няма в Търсене? Постави го тук и го добави в любими.": "Have the direct stream link of a station that isn't in Search? Paste it here and add it to your favorites.",
+    "Име на станцията (по желание)": "Station name (optional)",
+    "напр. Моето радио": "e.g. My radio",
+    "Добави и пусни": "Add and play",
+    "Добави": "Add",
+    "Stream линкът е връзката към самия звук, не адресът на сайта на радиото. Нямаш го? В приложението Drive Radio отваряш сайта на радиото и то само намира потока. С Premium станцията, добавена в приложението, се появява и тук.": "The stream link points to the audio itself, not to the station's website. Don't have it? In the Drive Radio app you open the station's website and the app finds the stream by itself. With Premium, a station added in the app shows up here too.",
+    "За приложението": "About the app",
+    "Политика за поверителност": "Privacy policy",
+    "Общи условия": "Terms of use",
+    "Drive Radio за Android": "Drive Radio for Android",
+    "Навигация": "Navigation",
+    "Музика": "Music",
+    "Обаждане": "Call",
+    "Настройки на бързите бутони": "Quick button settings",
+    "Настройки": "Settings",
+    "Бързи бутони": "Quick buttons",
+    "Обаждане: име на прекия път в Shortcuts": "Call: name of the shortcut in Shortcuts",
+    "напр. Обади се": "e.g. Call home",
+    "Празно = бутонът още не е настроен.": "Empty = the button is not set up yet.",
+    "Готово": "Done",
+    "Затвори": "Close",
+    "Един списък навсякъде": "One list everywhere",
+    "Слушането е безплатно, тук и в приложението. Premium добавя удобства, сред тях общ списък с любими между телефона и браузъра.": "Listening is free, here and in the app. Premium adds conveniences, including one favorites list shared between your phone and the browser.",
+    "Любимите от телефона се появяват тук и обратно": "Favorites from your phone show up here, and the other way round",
+    "История на изсвирените песни": "History of the songs played",
+    "Резервно копие на списъка в профила ти": "A backup of your list in your account",
+    "Отвори в Google Play": "Open in Google Play",
+    "По-късно": "Later",
+    "Premium се купува в приложението за Android. Влез тук със същия профил и списъкът ще стане общ.": "Premium is bought in the Android app. Sign in here with the same account and your list becomes shared.",
+    "Излизане от профила?": "Sign out?",
+    "Смени профила": "Switch account",
+    "Отказ": "Cancel",
+    "Влязъл си като {email}.": "Signed in as {email}.",
+    "Историята е Premium функция": "History is a Premium feature",
+    "Виж последно изсвирените песни от всички станции — с обложки и час на излъчване, синхронизирано между телефона и компютъра.": "See the latest songs played on all your stations, with covers and the time they aired, synced between your phone and computer.",
+    "Търси песен, изпълнител или станция...": "Search for a song, artist or station...",
+    "Все още няма история — пусни радио и се върни по-късно.": "No history yet. Play a station and come back later.",
+    "Днес": "Today",
+    "Вчера": "Yesterday",
+    "Търси държава...": "Search for a country...",
+    "Нищо не съвпада.": "No matches.",
+    "Неуспешен вход: ": "Sign-in failed: ",
+    "Регистрация": "Sign up",
+    "Вече имаш акаунт? <a href=\"#\" id=\"authToggleLink\">Влез</a>": "Already have an account? <a href=\"#\" id=\"authToggleLink\">Sign in</a>",
+    "Нямаш акаунт? <a href=\"#\" id=\"authToggleLink\">Регистрирай се</a>": "No account? <a href=\"#\" id=\"authToggleLink\">Sign up</a>",
+    "Вече има акаунт с този имейл - опитай да влезеш вместо да се регистрираш.": "There is already an account with this email. Try signing in instead.",
+    "Паролата трябва да е поне 6 символа.": "The password must be at least 6 characters.",
+    "Невалиден имейл адрес.": "Invalid email address.",
+    "Грешен имейл или парола.": "Wrong email or password.",
+    "Нещо се обърка: ": "Something went wrong: ",
+    "Неуспешна смяна на профила: ": "Could not switch account: ",
+    "Промяната в любимите не се запази. Провери връзката и опитай пак.": "The change to your favorites was not saved. Check your connection and try again.",
+    "Отвори": "Open",
+    "Натисни бутон на дистанционното…": "Press a button on the remote…",
+    "Натисни ▶ за пускане": "Press ▶ to play",
+    "На пауза": "Paused",
+    "Свързване…": "Connecting…",
+    "Търся защитена версия на станцията…": "Looking for a secure version of the station…",
+    "Тази станция е със стар адрес (http) и браузърът не я пуска. В приложението Drive Radio работи.": "This station has an old (http) address and the browser won't play it. It works in the Drive Radio app.",
+    "Станцията не отговаря. Опитай пак по-късно или избери друга.": "The station is not responding. Try again later or pick another one.",
+    "Пускаме защитената версия на станцията.": "Playing the secure version of the station.",
+    "🔗 Твой адрес": "🔗 Your link",
+    "Твой адрес": "Your link",
+    "Още нямаш любими станции. Намери станция в „Търсене“ и докосни ☆.": "No favorite stations yet. Find one in \"Search\" and tap ☆.",
+    "Плъзни за пренареждане": "Drag to reorder",
+    "Поп": "Pop",
+    "Рок": "Rock",
+    "Поп-фолк": "Pop-folk",
+    "Фолк": "Folk",
+    "Новини": "News",
+    "Денс": "Dance",
+    "Ретро": "Retro",
+    "Джаз": "Jazz",
+    "Класика": "Classical",
+    "Хип-хоп": "Hip-hop",
+    "Релакс": "Chill",
+    "Не намираш станцията? Добави я от приложението Drive Radio: отваряш сайта на радиото и то само намира потока. С Premium станцията се появява и тук.": "Can't find the station? Add it in the Drive Radio app: open the station's website and the app finds the stream by itself. With Premium the station shows up here too.",
+    "станция": "station",
+    "станции": "stations",
+    " (има още за зареждане)": " (more to load)",
+    "Зареждане…": "Loading…",
+    "Няма станция с това име.": "No station with this name.",
+    "Няма станции в този жанр тук.": "No stations in this genre here.",
+    "Не успяхме да заредим станции. Опитай отново.": "Couldn't load the stations. Try again.",
+    "Скрий": "Hide",
+    "Още станции": "More stations",
+    "Зареди още": "Load more",
+    "Не успяхме да заредим списъка. Опитай отново.": "Couldn't load the list. Try again.",
+    "Търси станция по име...": "Search for a station by name...",
+    "Този линк не свири. Вероятно е адресът на сайта на радиото, а не stream линкът. Намери станцията в Търсене или я добави от приложението Drive Radio – то намира потока от сайта само.": "This link doesn't play. It is probably the station's website, not its stream link. Find the station in Search or add it in the Drive Radio app, which finds the stream from the website by itself.",
+    "Постави stream линка на радиото.": "Paste the station's stream link.",
+    "Това не прилича на линк. Трябва да започва с https:// или http://": "That doesn't look like a link. It should start with https:// or http://",
+    "Проверявам линка…": "Checking the link…",
+    "Добавена в любими. Линкът е http, затова браузърът може да не я пусне; в приложението работи.": "Added to favorites. The link is http, so the browser may not play it; it works in the app.",
+    "„{name}“ е добавена в любими.": "\"{name}\" was added to favorites."
+  };
+
+  function tr(text, vars) {
+    var out = (lang === 'en' && Object.prototype.hasOwnProperty.call(EN, text)) ? EN[text] : text;
+    if (vars) Object.keys(vars).forEach(function (k) { out = out.split('{' + k + '}').join(vars[k]); });
+    return out;
+  }
+  window.drLang = lang;
+  window.drTr = tr;
+
+  // Language switch in the header: remembered, then the page reloads in it.
+  document.querySelectorAll('.lang-switch [data-lang]').forEach(function (b) {
+    b.setAttribute('aria-pressed', String(b.getAttribute('data-lang') === lang));
+    b.addEventListener('click', function () {
+      var l = b.getAttribute('data-lang');
+      if (l === lang) return;
+      try { localStorage.setItem(KEY, l); } catch (e) {}
+      location.reload();
+    });
+  });
+
+  if (lang !== 'en') return;
+  // Everything already in the page: text, then the attributes people see.
+  var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  var nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach(function (n) {
+    if (n.parentNode && n.parentNode.nodeName === 'SCRIPT') return;
+    var t = n.nodeValue.trim();
+    if (!t || !Object.prototype.hasOwnProperty.call(EN, t)) return;
+    var lead = n.nodeValue.match(/^\s*/)[0];
+    var trail = n.nodeValue.match(/\s*$/)[0];
+    n.nodeValue = lead + EN[t] + trail;
+  });
+  ['placeholder', 'title', 'aria-label', 'alt'].forEach(function (attr) {
+    document.querySelectorAll('[' + attr + ']').forEach(function (el) {
+      var v = el.getAttribute(attr);
+      if (Object.prototype.hasOwnProperty.call(EN, v)) el.setAttribute(attr, EN[v]);
+    });
+  });
+  var desc = document.querySelector('meta[name="description"]');
+  if (desc && Object.prototype.hasOwnProperty.call(EN, desc.content)) desc.content = EN[desc.content];
+  // Links to the English pages of the site and of the legal texts.
+  document.querySelectorAll('a[href="https://driveradio.app/"]').forEach(function (a) { a.href = 'https://driveradio.app/en/'; });
+  document.querySelectorAll('a[href="privacy-policy.html"], a[href="terms.html"]').forEach(function (a) { a.setAttribute('href', a.getAttribute('href') + '#en'); });
+})();
+</script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
@@ -1454,6 +1684,9 @@ import {
   getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
   collection, query, orderBy, limit, getDocs, addDoc, getCountFromServer, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// Text in the visitor's language (see the language script above).
+const tr = window.drTr;
 
 const firebaseConfig = {
   apiKey: "AIzaSyDnFRHU5zQe7_4Mg7VU5D-yrrvc81_Oxzs",
@@ -1560,7 +1793,7 @@ function googleProvider() {
 document.getElementById('googleSignInBtn').addEventListener('click', () => {
   els.loginError.textContent = '';
   signInWithPopup(auth, googleProvider()).catch(e => {
-    els.loginError.textContent = 'Неуспешен вход: ' + e.message;
+    els.loginError.textContent = tr('Неуспешен вход: ') + e.message;
   });
 });
 
@@ -1571,10 +1804,10 @@ document.getElementById('googleSignInBtn').addEventListener('click', () => {
 let isRegisterMode = false;
 
 function applyAuthMode() {
-  els.emailSubmitBtn.textContent = isRegisterMode ? 'Регистрация' : 'Вход с имейл';
+  els.emailSubmitBtn.textContent = isRegisterMode ? tr('Регистрация') : tr('Вход с имейл');
   els.authToggle.innerHTML = isRegisterMode
-    ? 'Вече имаш акаунт? <a href="#" id="authToggleLink">Влез</a>'
-    : 'Нямаш акаунт? <a href="#" id="authToggleLink">Регистрирай се</a>';
+    ? tr('Вече имаш акаунт? <a href="#" id="authToggleLink">Влез</a>')
+    : tr('Нямаш акаунт? <a href="#" id="authToggleLink">Регистрирай се</a>');
 }
 // Delegated on the container (not the <a> directly) since applyAuthMode()
 // replaces the <a> node via innerHTML on every toggle - a direct listener
@@ -1589,13 +1822,13 @@ els.authToggle.addEventListener('click', (e) => {
 
 function authErrorMessage(err) {
   switch (err.code) {
-    case 'auth/email-already-in-use': return 'Вече има акаунт с този имейл - опитай да влезеш вместо да се регистрираш.';
-    case 'auth/weak-password': return 'Паролата трябва да е поне 6 символа.';
-    case 'auth/invalid-email': return 'Невалиден имейл адрес.';
+    case 'auth/email-already-in-use': return tr('Вече има акаунт с този имейл - опитай да влезеш вместо да се регистрираш.');
+    case 'auth/weak-password': return tr('Паролата трябва да е поне 6 символа.');
+    case 'auth/invalid-email': return tr('Невалиден имейл адрес.');
     case 'auth/user-not-found':
     case 'auth/wrong-password':
-    case 'auth/invalid-credential': return 'Грешен имейл или парола.';
-    default: return 'Нещо се обърка: ' + err.message;
+    case 'auth/invalid-credential': return tr('Грешен имейл или парола.');
+    default: return tr('Нещо се обърка: ') + err.message;
   }
 }
 
@@ -1617,7 +1850,7 @@ function hideSignOutModal() { signOutModal.style.display = 'none'; }
 
 document.getElementById('signOutBtn').addEventListener('click', () => {
   document.getElementById('signOutWho').textContent =
-    currentUser && currentUser.email ? 'Влязъл си като ' + currentUser.email + '.' : '';
+    currentUser && currentUser.email ? tr('Влязъл си като {email}.', { email: currentUser.email }) : '';
   signOutModal.style.display = 'flex';
   document.getElementById('cancelSignOutBtn').focus();
 });
@@ -1639,7 +1872,7 @@ document.getElementById('switchAccountBtn').addEventListener('click', () => {
   if (!isGoogle) { signOut(auth); return; }
   signInWithPopup(auth, googleProvider()).catch(e => {
     if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
-    alert('Неуспешна смяна на профила: ' + e.message);
+    alert(tr('Неуспешна смяна на профила: ') + e.message);
   });
 });
 
@@ -1822,7 +2055,7 @@ async function pushFavorites() {
     });
   } catch (e) {
     console.error('FAVORITES PUSH ERROR', e);
-    alert('Промяната в любимите не се запази. Провери връзката и опитай пак.');
+    alert(tr('Промяната в любимите не се запази. Провери връзката и опитай пак.'));
   }
 }
 
@@ -1963,8 +2196,8 @@ function dayLabel(date) {
   const now = new Date();
   const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   const diffDays = Math.round((startOfDay(now) - startOfDay(date)) / 86400000);
-  if (diffDays === 0) return 'Днес';
-  if (diffDays === 1) return 'Вчера';
+  if (diffDays === 0) return tr('Днес');
+  if (diffDays === 1) return tr('Вчера');
   const pad = n => String(n).padStart(2, '0');
   return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}`;
 }
@@ -2018,7 +2251,7 @@ function historyCard(entry) {
 
   const openBtn = document.createElement('button');
   openBtn.className = 'history-open-btn';
-  openBtn.title = 'Отвори';
+  openBtn.title = tr('Отвори');
   openBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3z"/><path d="M19 19H5V5h7V3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2z"/></svg>';
   openBtn.addEventListener('click', () => {
     const platform = MUSIC_PLATFORMS[els.historyPlatformSelect.value] || MUSIC_PLATFORMS.spotify;
@@ -2142,7 +2375,7 @@ function updateHeroFav() {
   if (!currentStation) { b.style.display = 'none'; return; }
   const fav = isFavorite(currentStation);
   b.textContent = fav ? '★' : '☆';
-  b.title = fav ? 'Премахни от любими' : 'Добави в любими';
+  b.title = fav ? tr('Премахни от любими') : tr('Добави в любими');
   b.style.display = 'inline-flex';
 }
 document.getElementById('heroFavBtn').addEventListener('click', () => {
@@ -2232,7 +2465,7 @@ registerMediaActions();
     keyLog = document.createElement('div');
     keyLog.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:99;background:#111;color:#ffb066;' +
       'border:1px solid #ff8c1a;border-radius:10px;padding:8px 12px;font:14px monospace;pointer-events:none;';
-    keyLog.textContent = 'Натисни бутон на дистанционното…';
+    keyLog.textContent = tr('Натисни бутон на дистанционното…');
     document.body.appendChild(keyLog);
   }
   document.addEventListener('keydown', (e) => {
@@ -2346,7 +2579,7 @@ function presetStation(station) {
   els.player.src = station.url;
   updateNowPlaying();
   // Only selected, not playing - "Свързване…" here read as stuck.
-  setStatus('Натисни ▶ за пускане');
+  setStatus(tr('Натисни ▶ за пускане'));
   renderFavoritesList();
   renderWorldList();
 }
@@ -2420,8 +2653,8 @@ els.heroPlayBtn.addEventListener('click', togglePlayPause);
 els.heroPrevBtn.addEventListener('click', () => stepStation(-1));
 els.heroNextBtn.addEventListener('click', () => stepStation(1));
 els.player.addEventListener('playing', () => { updateListeningSession(); keepScreenOn(); registerMediaActions(); setMediaPlaybackState('playing'); setPlayingUI(true); setPlayIcon(true); renderFavoritesList(); renderWorldList(); });
-els.player.addEventListener('pause', () => { cancelListeningSession(); allowScreenOff(); setMediaPlaybackState('paused'); setPlayingUI(false); setStatus('На пауза'); setPlayIcon(false); renderFavoritesList(); renderWorldList(); });
-els.player.addEventListener('waiting', () => { setPlayingUI(false); setStatus('Свързване…'); });
+els.player.addEventListener('pause', () => { cancelListeningSession(); allowScreenOff(); setMediaPlaybackState('paused'); setPlayingUI(false); setStatus(tr('На пауза')); setPlayIcon(false); renderFavoritesList(); renderWorldList(); });
+els.player.addEventListener('waiting', () => { setPlayingUI(false); setStatus(tr('Свързване…')); });
 els.player.addEventListener('error', async () => {
   cancelListeningSession(); allowScreenOff(); setPlayingUI(false);
   // A secure (https) page may not load an http stream. Many stations also
@@ -2440,7 +2673,7 @@ els.player.addEventListener('error', async () => {
       if (station.originalUrl) {
         const map = loadSecureMap(); delete map[orig]; saveSecureMap(map);
       }
-      setStatus('Търся защитена версия на станцията…');
+      setStatus(tr('Търся защитена версия на станцията…'));
       queue = (await findSecureCandidates({ ...station, url: orig })).filter(u => u !== station.url);
       if (currentStation !== station) return; // the listener picked something else meanwhile
     }
@@ -2454,8 +2687,8 @@ els.player.addEventListener('error', async () => {
   }
   setPlayIcon(false);
   setStatus(httpOrigin
-    ? 'Тази станция е със стар адрес (http) и браузърът не я пуска. В приложението Drive Radio работи.'
-    : 'Станцията не отговаря. Опитай пак по-късно или избери друга.');
+    ? tr('Тази станция е със стар адрес (http) и браузърът не я пуска. В приложението Drive Radio работи.')
+    : tr('Станцията не отговаря. Опитай пак по-късно или избери друга.'));
 });
 // A found https version is remembered once it actually plays.
 els.player.addEventListener('playing', () => {
@@ -2527,7 +2760,7 @@ function showSecureNote() {
     note.setAttribute('role', 'status');
     document.body.appendChild(note);
   }
-  note.textContent = 'Пускаме защитената версия на станцията.';
+  note.textContent = tr('Пускаме защитената версия на станцията.');
   note.classList.add('show');
   clearTimeout(secureNoteTimer);
   secureNoteTimer = setTimeout(() => note.classList.remove('show'), 5000);
@@ -2594,7 +2827,7 @@ async function fetchAndShowNowPlayingSong() {
     // response landing after a station switch must not overwrite the new
     // station's placeholder with the old one's song/art.
     if (!currentStation || currentStation.url !== stationUrl) return;
-    els.heroSong.textContent = data.song ? ('🎵 ' + data.song) : '🎵 На живо';
+    els.heroSong.textContent = data.song ? ('🎵 ' + data.song) : tr('🎵 На живо');
     currentSong = data.song || '';
     updateMusicButton();
     if (data.artUrl) {
@@ -2626,7 +2859,7 @@ async function fetchAndShowNowPlayingSong() {
     }
   } catch {
     if (!currentStation || currentStation.url !== stationUrl) return;
-    els.heroSong.textContent = '🎵 На живо';
+    els.heroSong.textContent = tr('🎵 На живо');
     currentSong = '';
     updateMusicButton();
     resetHeroArtToStationLogo();
@@ -2646,7 +2879,7 @@ function stopNowPlayingPolling() {
     nowPlayingTimer = null;
   }
   lastRecordedHistoryKey = null;
-  els.heroSong.textContent = '🎵 На живо';
+  els.heroSong.textContent = tr('🎵 На живо');
   currentSong = '';
   updateMusicButton();
   resetHeroArtToStationLogo();
@@ -2669,13 +2902,13 @@ function updateNowPlaying() {
   els.heroName.textContent = displayStationName(currentStation.name);
   updateHeroFav();
   setPlayingUI(false);
-  setStatus('Свързване…');
+  setStatus(tr('Свързване…'));
 
   if (currentStation.source === 'radioBrowser') {
     els.heroOrigin.textContent = '🌍 ' + (currentStation.country || currentStation.subtitle);
     els.heroOrigin.style.display = '';
   } else if (currentStation.source === 'custom') {
-    els.heroOrigin.textContent = '🔗 Твой адрес';
+    els.heroOrigin.textContent = tr('🔗 Твой адрес');
     els.heroOrigin.style.display = '';
   } else {
     els.heroOrigin.style.display = 'none';
@@ -2767,7 +3000,7 @@ function stationCard(station) {
   const sub = document.createElement('div');
   sub.className = 'sub';
   sub.textContent = station.source === 'custom'
-    ? '🔗 ' + (station.subtitle || 'Твой адрес')
+    ? '🔗 ' + (station.subtitle || tr('Твой адрес'))
     : '🌍 ' + (station.subtitle || station.country);
   info.appendChild(name);
   info.appendChild(sub);
@@ -2783,7 +3016,7 @@ function stationCard(station) {
   const star = document.createElement('button');
   star.className = 'star-btn';
   star.textContent = isFavorite(station) ? '★' : '☆';
-  star.title = isFavorite(station) ? 'Премахни от любими' : 'Добави в любими';
+  star.title = isFavorite(station) ? tr('Премахни от любими') : tr('Добави в любими');
   star.addEventListener('click', (e) => { e.stopPropagation(); toggleFavorite(station); });
   card.appendChild(star);
 
@@ -2803,7 +3036,7 @@ function renderFavoritesList() {
   if (favoriteStations.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
-    empty.textContent = 'Още нямаш любими станции. Намери станция в „Търсене“ и докосни ☆.';
+    empty.textContent = tr('Още нямаш любими станции. Намери станция в „Търсене“ и докосни ☆.');
     els.favoritesList.appendChild(empty);
     return;
   }
@@ -2877,7 +3110,7 @@ function makeFavoriteReorderable(card, index) {
   const grip = document.createElement('span');
   grip.className = 'fav-grip';
   grip.textContent = '⠿';
-  grip.title = 'Плъзни за пренареждане';
+  grip.title = tr('Плъзни за пренареждане');
   // A plain click on the grip shouldn't start playback - it's a drag handle.
   grip.addEventListener('click', (e) => e.stopPropagation());
   card.appendChild(grip);
@@ -2951,17 +3184,17 @@ const BASE_QUICK_COUNTRIES = ['BG', 'GB', 'GR', 'RO', 'TR', 'IT', 'DE', 'US'];
 // spread over many spellings (BG pop-folk: "pop-folk", "pop folk", "chalga").
 // Each chip asks for all of its tags (exact match) and merges the answers.
 const GENRE_GROUPS = [
-  { key: 'pop',       label: 'Поп',      tags: ['pop', 'top 40', 'top40', 'hits', 'pop music', 'adult contemporary'] },
-  { key: 'rock',      label: 'Рок',      tags: ['rock', 'classic rock', 'hard rock', 'alternative', 'alternative rock', 'metal', 'heavy metal', 'indie rock', 'punk'] },
-  { key: 'popfolk',   label: 'Поп-фолк', tags: ['pop-folk', 'pop folk', 'popfolk', 'chalga', 'чалга', 'попфолк', 'поп-фолк'] },
-  { key: 'folk',      label: 'Фолк',     tags: ['folk', 'folklore', 'bulgarian folk', 'traditional', 'народна музика', 'фолклор'] },
-  { key: 'news',      label: 'Новини',   tags: ['news', 'talk', 'news talk', 'information', 'public radio', 'новини'] },
-  { key: 'dance',     label: 'Денс',     tags: ['dance', 'electronic', 'house', 'edm', 'techno', 'trance', 'deep house', 'club'] },
-  { key: 'retro',     label: 'Ретро',    tags: ['oldies', '80s', '90s', '70s', '60s', 'retro', 'classic hits'] },
-  { key: 'jazz',      label: 'Джаз',     tags: ['jazz', 'blues', 'smooth jazz', 'soul', 'funk'] },
-  { key: 'classical', label: 'Класика',  tags: ['classical', 'classical music', 'opera', 'symphonic'] },
-  { key: 'hiphop',    label: 'Хип-хоп',  tags: ['hip hop', 'hip-hop', 'hiphop', 'rap', 'r&b', 'rnb', 'urban'] },
-  { key: 'chill',     label: 'Релакс',   tags: ['chillout', 'chill', 'lounge', 'ambient', 'relax'] },
+  { key: 'pop',       label: tr('Поп'),      tags: ['pop', 'top 40', 'top40', 'hits', 'pop music', 'adult contemporary'] },
+  { key: 'rock',      label: tr('Рок'),      tags: ['rock', 'classic rock', 'hard rock', 'alternative', 'alternative rock', 'metal', 'heavy metal', 'indie rock', 'punk'] },
+  { key: 'popfolk',   label: tr('Поп-фолк'), tags: ['pop-folk', 'pop folk', 'popfolk', 'chalga', 'чалга', 'попфолк', 'поп-фолк'] },
+  { key: 'folk',      label: tr('Фолк'),     tags: ['folk', 'folklore', 'bulgarian folk', 'traditional', 'народна музика', 'фолклор'] },
+  { key: 'news',      label: tr('Новини'),   tags: ['news', 'talk', 'news talk', 'information', 'public radio', 'новини'] },
+  { key: 'dance',     label: tr('Денс'),     tags: ['dance', 'electronic', 'house', 'edm', 'techno', 'trance', 'deep house', 'club'] },
+  { key: 'retro',     label: tr('Ретро'),    tags: ['oldies', '80s', '90s', '70s', '60s', 'retro', 'classic hits'] },
+  { key: 'jazz',      label: tr('Джаз'),     tags: ['jazz', 'blues', 'smooth jazz', 'soul', 'funk'] },
+  { key: 'classical', label: tr('Класика'),  tags: ['classical', 'classical music', 'opera', 'symphonic'] },
+  { key: 'hiphop',    label: tr('Хип-хоп'),  tags: ['hip hop', 'hip-hop', 'hiphop', 'rap', 'r&b', 'rnb', 'urban'] },
+  { key: 'chill',     label: tr('Релакс'),   tags: ['chillout', 'chill', 'lounge', 'ambient', 'relax'] },
 ];
 const genreByKey = (key) => GENRE_GROUPS.find(g => g.key === key) || null;
 
@@ -3353,8 +3586,8 @@ function updateChipActive() {
 function appAddHint() {
   const p = document.createElement('p');
   p.className = 'app-add-hint';
-  p.textContent = 'Не намираш станцията? Добави я от приложението Drive Radio: отваряш сайта на радиото ' +
-    'и то само намира потока. С Premium станцията се появява и тук.';
+  p.textContent = tr('Не намираш станцията? Добави я от приложението Drive Radio: отваряш сайта на радиото ' +
+    'и то само намира потока. С Premium станцията се появява и тук.');
   return p;
 }
 
@@ -3371,15 +3604,15 @@ function renderWorldList() {
     const header = document.createElement('div');
     header.className = 'world-country-header';
     const where = [genre ? genre.label : null, activeCountryInfo ? activeCountryInfo.name : null].filter(Boolean).join(' · ');
-    header.textContent = `${where} — ${shownCount} ${shownCount === 1 ? 'станция' : 'станции'}` +
-      (worldHasMore ? ' (има още за зареждане)' : '');
+    header.textContent = `${where} — ${shownCount} ${shownCount === 1 ? tr('станция') : tr('станции')}` +
+      (worldHasMore ? tr(' (има още за зареждане)') : '');
     els.worldList.appendChild(header);
   }
 
   if (worldLoading) {
     const loading = document.createElement('div');
     loading.className = 'empty-state';
-    loading.textContent = 'Зареждане…';
+    loading.textContent = tr('Зареждане…');
     els.worldList.appendChild(loading);
     return;
   }
@@ -3388,8 +3621,8 @@ function renderWorldList() {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
     empty.textContent = searching
-      ? 'Няма станция с това име.'
-      : (genre && worldRaw.length === 0 ? 'Няма станции в този жанр тук.' : 'Не успяхме да заредим станции. Опитай отново.');
+      ? tr('Няма станция с това име.')
+      : (genre && worldRaw.length === 0 ? tr('Няма станции в този жанр тук.') : tr('Не успяхме да заредим станции. Опитай отново.'));
     els.worldList.appendChild(empty);
     if (searching) els.worldList.appendChild(appAddHint());
     return;
@@ -3406,7 +3639,7 @@ function renderWorldList() {
     } else {
       const toggle = document.createElement('button');
       toggle.className = 'more-stations-toggle';
-      toggle.textContent = (worldMoreOpen ? 'Скрий' : 'Още станции') + ` (${worldMore.length}) ` + (worldMoreOpen ? '▴' : '▾');
+      toggle.textContent = (worldMoreOpen ? tr('Скрий') : tr('Още станции')) + ` (${worldMore.length}) ` + (worldMoreOpen ? '▴' : '▾');
       toggle.addEventListener('click', () => { worldMoreOpen = !worldMoreOpen; renderWorldList(); });
       els.worldList.appendChild(toggle);
       if (worldMoreOpen) worldMore.forEach(s => els.worldList.appendChild(stationCard(s)));
@@ -3418,13 +3651,13 @@ function renderWorldList() {
     const wrap = document.createElement('div');
     wrap.style.cssText = 'text-align:center; padding:16px 0;';
     if (worldLoadingMore) {
-      wrap.textContent = 'Зареждане…';
+      wrap.textContent = tr('Зареждане…');
       wrap.style.color = 'var(--text-dim)';
     } else {
       const btn = document.createElement('button');
       btn.className = 'btn';
       btn.style.cssText = 'width:auto; display:inline-flex; padding:10px 22px;';
-      btn.textContent = 'Зареди още';
+      btn.textContent = tr('Зареди още');
       btn.addEventListener('click', loadMoreWorld);
       wrap.appendChild(btn);
     }
@@ -3482,13 +3715,13 @@ function renderCountriesList() {
 async function openCountriesPanel() {
   els.countriesOverlay.classList.add('open');
   els.countriesPanel.classList.add('open');
-  els.countriesList.innerHTML = '<div class="empty-state">Зареждане…</div>';
+  els.countriesList.innerHTML = '<div class="empty-state">' + tr('Зареждане…') + '</div>';
   try {
     await fetchAllCountries();
     renderCountriesList();
   } catch {
     els.countriesList.innerHTML = '';
-    els.countriesEmptyState.textContent = 'Не успяхме да заредим списъка. Опитай отново.';
+    els.countriesEmptyState.textContent = tr('Не успяхме да заредим списъка. Опитай отново.');
     els.countriesEmptyState.style.display = 'block';
   }
 }
@@ -3525,7 +3758,7 @@ document.querySelectorAll('.tab').forEach(tabEl => {
     updateFreeFavoritesHint();
 
     if (activeTab === 'world') {
-      els.searchBox.placeholder = 'Търси станция по име...';
+      els.searchBox.placeholder = tr('Търси станция по име...');
       els.searchBox.value = worldSearchQuery;
       if (worldRaw.length === 0 && !worldLoading) {
         // Opens on the visitor's own country (browser language), else the
@@ -3593,19 +3826,19 @@ function probeStream(url) {
   });
 }
 
-const NOT_A_STREAM_MSG = 'Този линк не свири. Вероятно е адресът на сайта на радиото, а не stream линкът. ' +
-  'Намери станцията в Търсене или я добави от приложението Drive Radio – то намира потока от сайта само.';
+const NOT_A_STREAM_MSG = tr('Този линк не свири. Вероятно е адресът на сайта на радиото, а не stream линкът. ' +
+  'Намери станцията в Търсене или я добави от приложението Drive Radio – то намира потока от сайта само.');
 
 let addressChecking = false;
 els.addressForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (addressChecking) return;
   const url = els.addressUrl.value.trim();
-  if (!url) { setAddressMsg('Постави stream линка на радиото.', true); els.addressUrl.focus(); return; }
+  if (!url) { setAddressMsg(tr('Постави stream линка на радиото.'), true); els.addressUrl.focus(); return; }
   let parsed;
   try { parsed = new URL(url); } catch { parsed = null; }
   if (!parsed || (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')) {
-    setAddressMsg('Това не прилича на линк. Трябва да започва с https:// или http://', true);
+    setAddressMsg(tr('Това не прилича на линк. Трябва да започва с https:// или http://'), true);
     return;
   }
   // No name typed: use the site's name from the link; it can be renamed later.
@@ -3622,7 +3855,7 @@ els.addressForm.addEventListener('submit', async (e) => {
     addressChecking = true;
     const buttons = els.addressForm.querySelectorAll('button');
     buttons.forEach(b => { b.disabled = true; });
-    setAddressMsg('Проверявам линка…', false);
+    setAddressMsg(tr('Проверявам линка…'), false);
     const ok = await probeStream(url);
     buttons.forEach(b => { b.disabled = false; });
     addressChecking = false;
@@ -3631,8 +3864,8 @@ els.addressForm.addEventListener('submit', async (e) => {
 
   if (!isFavorite(station)) toggleFavorite(station);
   setAddressMsg(insecure
-    ? 'Добавена в любими. Линкът е http, затова браузърът може да не я пусне; в приложението работи.'
-    : `„${name}“ е добавена в любими.`, false);
+    ? tr('Добавена в любими. Линкът е http, затова браузърът може да не я пусне; в приложението работи.')
+    : tr('„{name}“ е добавена в любими.', { name }), false);
   if (addressPlayNow) playStation(station);
   els.addressForm.reset();
 });
